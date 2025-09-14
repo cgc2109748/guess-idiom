@@ -444,8 +444,13 @@ class Level1 {
     
     // 检查按钮点击
     for (let button of this.buttons) {
+      // 针对三个按钮（移出/撤回/洗牌）统一下移点击命中区域到可视位置：3 × 按钮高度
+      const needsOffset = (button.id === 'remove' || button.id === 'undo' || button.id === 'shuffle');
+      const yOffset = needsOffset ? (3 * button.height) : 0;
+      const hitTop = button.y + yOffset;
+      const hitBottom = button.y + button.height + yOffset;
       if (x >= button.x && x <= button.x + button.width &&
-          y >= button.y && y <= button.y + button.height) {
+          y >= hitTop && y <= hitBottom) {
         this.handleButtonClick(button.id);
         return;
       }
@@ -466,7 +471,10 @@ class Level1 {
     }
     
     // 检查网格点击
-    const clickedBlock = this.getClickedBlock(x, y);
+    // 仅用于九宫格命中检测：将事件坐标向左上回调 2/3 × cellSize
+    const xForGrid = x - (2 * this.cellSize) / 3;
+    const yForGrid = y - (2 * this.cellSize) / 3;
+    const clickedBlock = this.getClickedBlock(xForGrid, yForGrid);
     if (clickedBlock) {
       this.doClickBlock(clickedBlock);
     }
@@ -488,13 +496,18 @@ class Level1 {
       actualCardSpacing = Math.max(1, (availableWidth - this.removedCards.cards.length * this.removedCards.cardWidth) / 
                                      (this.removedCards.cards.length - 1));
     }
+
+    // 进一步微调：高度与渲染一致，则继续向下校正 1/3 × 卡片高度
+    // 最终总校正量 = 8/3 × 卡片高度
+    const clickYOffset = (8 * this.removedCards.cardHeight) / 3;
     
     for (let i = 0; i < this.removedCards.cards.length; i++) {
       const cardX = this.removedCards.x + 10 + i * (this.removedCards.cardWidth + actualCardSpacing);
-      const cardY = this.removedCards.y;
+      const hitTop = this.removedCards.y + clickYOffset;
+      const hitBottom = hitTop + this.removedCards.cardHeight;
       
       if (x >= cardX && x <= cardX + this.removedCards.cardWidth &&
-          y >= cardY && y <= cardY + this.removedCards.cardHeight) {
+          y >= hitTop && y <= hitBottom) {
         return i;
       }
     }
@@ -518,9 +531,13 @@ class Level1 {
       actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
     }
     
+    // 点击命中区域与渲染对齐：整体向下校正，避免与上方九宫格误判
+    // 采用与移出区域一致的校正量：8/3 × 卡片高度
+    const clickYOffset = (8 * this.cardSlot.cardHeight) / 3;
+    
     for (let i = 0; i < this.cardSlot.cards.length; i++) {
       const cardX = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
-      const cardY = this.cardSlot.y + 5;
+      const cardY = this.cardSlot.y + 5 + clickYOffset;
       
       // 确保不超出卡槽边界
       if (cardX + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
@@ -560,13 +577,17 @@ class Level1 {
           const block = blocksInCell[i];
           if (block.status !== 0) continue; // 跳过已移除的块
           
-          // 不使用层级偏移，点击区域为卡片完整区域
+          // 彻底修正：点击命中区域严格对齐渲染区域
+          // 渲染位置：layerX = cell.x, layerY = cell.y (参见renderSingleBlock)
+          // 因此命中区域应该完全一致，且高度必须等于cellSize
           const blockX = cell.x;
-          const blockY = cell.y;
+          const blockY = cell.y; // 与渲染的layerY完全一致，无任何偏移
+          const blockWidth = cell.width;  // = this.cellSize = 60
+          const blockHeight = cell.height; // = this.cellSize = 60
           
-          // 检查点击是否在块范围内（覆盖整个卡片区域）
-          if (x >= blockX && x <= blockX + cell.width &&
-              y >= blockY && y <= blockY + cell.height) {
+          // 检查点击是否在块范围内（完整覆盖卡片可视区域）
+          if (x >= blockX && x <= blockX + blockWidth &&
+              y >= blockY && y <= blockY + blockHeight) {
             // 如果这是目前找到的最高层块，且可点击，则选择它
             if (block.level > highestLevel && this.isBlockClickable(block)) {
               clickedBlock = block;
@@ -1041,6 +1062,9 @@ class Level1 {
     // 绘制网格（改进的渲染逻辑）
     this.renderBlocks();
     
+    // 可视化：在九宫格卡片上覆盖显示真实点击区域（命中框）
+    this.renderGridHitboxes();
+    
     // 绘制底部功能按钮
     this.renderButtons();
     
@@ -1064,7 +1088,42 @@ class Level1 {
     });
   }
   
-  // 渲染单个块
+  // 调试可视化：渲染九宫格点击命中区域覆盖层
+  renderGridHitboxes() {
+    this.ctx.save();
+    this.ctx.lineWidth = 2;
+    
+    for (let row = 0; row < this.gridSize; row++) {
+      for (let col = 0; col < this.gridSize; col++) {
+        const cell = this.gridCells[row][col];
+        const visibleBlocksInCell = this.chessBoard[row][col].blocks.filter(b => b.status === 0);
+        if (visibleBlocksInCell.length === 0) {
+          // 该格子没有可见卡片，则没有实际点击目标，不绘制
+          continue;
+        }
+        
+        // 若该格子有可点击的顶层卡片，则标绿；否则标红
+        const topClickable = this.getTopClickableBlock(row, col);
+        if (topClickable) {
+          this.ctx.fillStyle = 'rgba(50, 205, 50, 0.25)';      // 绿色半透明
+          this.ctx.strokeStyle = 'rgba(50, 205, 50, 0.9)';     // 绿色描边
+        } else {
+          this.ctx.fillStyle = 'rgba(220, 20, 60, 0.22)';      // 红色半透明
+          this.ctx.strokeStyle = 'rgba(220, 20, 60, 0.9)';     // 红色描边
+        }
+        
+        // 匹配反馈：采用 2/3 × cellSize 的左上偏移，展示真正促发命中的屏幕区域
+        const visOffset = (2 * this.cellSize) / 3;
+         const vx = cell.x - visOffset;
+         const vy = cell.y - visOffset;
+         this.ctx.fillRect(vx, vy, cell.width, cell.height);
+         this.ctx.strokeRect(vx, vy, cell.width, cell.height);
+      }
+    }
+    
+    this.ctx.restore();
+  }
+  
   renderSingleBlock(block) {
     const cell = this.gridCells[block.x][block.y];
     const character = this.characterTypes[block.type];
@@ -1083,8 +1142,9 @@ class Level1 {
     const visibleBlocks = blocksInCell.filter(b => b.status === 0);
     const isTopMostVisible = visibleBlocks.length > 0 && block.id === visibleBlocks[visibleBlocks.length - 1].id;
     
-    // 保存当前绘图状态（去除透明度与层级阴影，统一样式）
+    // 保存当前绘图状态（为最顶层卡片设置透明度以便看到下一张）
     this.ctx.save();
+    this.ctx.globalAlpha = isTopMostVisible ? 0.5 : 1.0;
     
     // 绘制块背景
     this.ctx.fillStyle = isClickable ? '#f5f5dc' : '#d3d3d3';
@@ -1279,7 +1339,10 @@ class Level1 {
                                      (this.removedCards.cards.length - 1));
     }
     
-    // 绘制移出的卡片
+    // 进一步微调：高度与渲染一致，则继续向下校正 1/3 × 卡片高度
+    // 最终总校正量 = 8/3 × 卡片高度
+    const clickYOffset = (8 * this.removedCards.cardHeight) / 3;
+    
     for (let i = 0; i < this.removedCards.cards.length; i++) {
       const card = this.removedCards.cards[i];
       const character = this.characterTypes[card.characterType];
