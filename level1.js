@@ -262,6 +262,18 @@ class Level1 {
       cardSpacing: 5
     };
     
+    // 移出卡片区域配置
+    this.removedCards = {
+      cards: [],
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 50,
+      cardWidth: 30,
+      cardHeight: 50,
+      cardSpacing: 5
+    };
+    
     // 移动动画相关
     this.movingCard = null;
     this.animationDuration = 500; // 毫秒
@@ -365,56 +377,47 @@ class Level1 {
   }
   
   initButtons() {
+    // 计算按钮布局 - 三个按钮居中排列
+    const buttonWidth = 80;
+    const buttonHeight = 50;
+    const buttonSpacing = 20;
+    const totalWidth = 3 * buttonWidth + 2 * buttonSpacing;
+    const startX = (this.width - totalWidth) / 2;
+    const buttonY = this.height - 120; // 向下调整到距离底部120像素
+    
     this.buttons = [
       {
+        id: 'remove',
+        x: startX,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight,
+        color: '#ff6b6b',
+        icon: '🗑️',
+        text: '移出',
+        action: () => this.removeLastCard()
+      },
+      {
         id: 'undo',
-        x: 20,
-        y: this.height - 120,
-        width: 60,
-        height: 40,
+        x: startX + buttonWidth + buttonSpacing,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight,
         color: '#4caf50',
-        icon: '撤销',
+        icon: '↶',
+        text: '撤回',
         action: () => this.undoLastAction()
       },
       {
-        id: 'reset',
-        x: 90,
-        y: this.height - 120,
-        width: 60,
-        height: 40,
-        color: '#ff6b6b',
-        icon: '重置',
-        action: () => this.resetLevel()
-      },
-      {
-        id: 'switch',
-        x: 160,
-        y: this.height - 120,
-        width: 60,
-        height: 40,
-        color: '#45b7d1',
-        icon: '切换',
-        action: () => this.switchCharacterType()
-      },
-      {
-        id: 'difficulty-down',
-        x: 230,
-        y: this.height - 120,
-        width: 50,
-        height: 40,
-        color: '#ffd700',
-        icon: '难度-',
-        action: () => this.decreaseDifficulty()
-      },
-      {
-        id: 'difficulty-up',
-        x: 290,
-        y: this.height - 120,
-        width: 50,
-        height: 40,
-        color: '#ff8c42',
-        icon: '难度+',
-        action: () => this.increaseDifficulty()
+        id: 'shuffle',
+        x: startX + 2 * (buttonWidth + buttonSpacing),
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight,
+        color: '#9c27b0',
+        icon: '🔀',
+        text: '洗牌',
+        action: () => this.shuffleBlocks()
       }
     ];
   }
@@ -448,6 +451,20 @@ class Level1 {
       }
     }
     
+    // 检查移出卡片点击
+    const clickedRemovedCard = this.getClickedRemovedCard(x, y);
+    if (clickedRemovedCard !== -1) {
+      this.addRemovedCardToSlot(clickedRemovedCard);
+      return;
+    }
+    
+    // 检查卡槽中卡片点击
+    const clickedSlotCard = this.getClickedSlotCard(x, y);
+    if (clickedSlotCard !== -1) {
+      this.moveSlotCardToRemoved(clickedSlotCard);
+      return;
+    }
+    
     // 检查网格点击
     const clickedBlock = this.getClickedBlock(x, y);
     if (clickedBlock) {
@@ -455,9 +472,82 @@ class Level1 {
     }
   }
   
+  getClickedRemovedCard(x, y) {
+    // 检查是否点击了移出的卡片
+    if (this.removedCards.cards.length === 0) {
+      return -1;
+    }
+    
+    const availableWidth = this.removedCards.width - 20; // 左右各留10px边距
+    const totalCardWidth = this.removedCards.cards.length * this.removedCards.cardWidth + 
+                          (this.removedCards.cards.length - 1) * this.removedCards.cardSpacing;
+    
+    // 如果总宽度超出可用宽度，调整卡片间距
+    let actualCardSpacing = this.removedCards.cardSpacing;
+    if (totalCardWidth > availableWidth) {
+      actualCardSpacing = Math.max(1, (availableWidth - this.removedCards.cards.length * this.removedCards.cardWidth) / 
+                                     (this.removedCards.cards.length - 1));
+    }
+    
+    for (let i = 0; i < this.removedCards.cards.length; i++) {
+      const cardX = this.removedCards.x + 10 + i * (this.removedCards.cardWidth + actualCardSpacing);
+      const cardY = this.removedCards.y;
+      
+      if (x >= cardX && x <= cardX + this.removedCards.cardWidth &&
+          y >= cardY && y <= cardY + this.removedCards.cardHeight) {
+        return i;
+      }
+    }
+    
+    return -1;
+  }
+  
+  getClickedSlotCard(x, y) {
+    // 检查是否点击了卡槽中的卡片
+    if (this.cardSlot.cards.length === 0) {
+      return -1;
+    }
+    
+    // 计算可用宽度和每个卡片位置的实际宽度
+    const availableWidth = this.cardSlot.width - 20; // 左右各留10px边距
+    const totalCardWidth = this.cardSlot.maxCards * this.cardSlot.cardWidth + (this.cardSlot.maxCards - 1) * this.cardSlot.cardSpacing;
+    
+    // 如果总宽度超出可用宽度，调整卡片间距
+    let actualCardSpacing = this.cardSlot.cardSpacing;
+    if (totalCardWidth > availableWidth) {
+      actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
+    }
+    
+    for (let i = 0; i < this.cardSlot.cards.length; i++) {
+      const cardX = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
+      const cardY = this.cardSlot.y + 5;
+      
+      // 确保不超出卡槽边界
+      if (cardX + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
+        if (x >= cardX && x <= cardX + this.cardSlot.cardWidth &&
+            y >= cardY && y <= cardY + this.cardSlot.cardHeight) {
+          return i;
+        }
+      }
+    }
+    
+    return -1;
+  }
+  
+  moveSlotCardToRemoved(cardIndex) {
+    // 将卡槽中的卡片移动到移出区域
+    if (cardIndex >= 0 && cardIndex < this.cardSlot.cards.length) {
+      const card = this.cardSlot.cards.splice(cardIndex, 1)[0];
+      this.removedCards.cards.push(card);
+      
+      // 更新移出卡片区域的位置和大小
+      this.updateRemovedCardsLayout();
+    }
+  }
+  
   getClickedBlock(x, y) {
     let clickedBlock = null;
-    let highestLayer = -1;
+    let highestLevel = -1;
     
     // 遍历所有网格位置
     for (let row = 0; row < this.gridSize; row++) {
@@ -470,22 +560,17 @@ class Level1 {
           const block = blocksInCell[i];
           if (block.status !== 0) continue; // 跳过已移除的块
           
-          // 计算该层块的实际渲染位置
-          const layer = block.level - 1;
-          const offsetX = layer * this.layerOffset;
-          const offsetY = layer * this.layerOffset;
-          const blockX = cell.x - offsetX;
-          const blockY = cell.y - offsetY;
+          // 不使用层级偏移，点击区域为卡片完整区域
+          const blockX = cell.x;
+          const blockY = cell.y;
           
-          // 检查点击是否在块范围内
-          // 调整Y坐标检测范围，向下偏移三分之二的卡片高度
-          const adjustedBlockY = blockY + cell.height * 2 / 3;
+          // 检查点击是否在块范围内（覆盖整个卡片区域）
           if (x >= blockX && x <= blockX + cell.width &&
-              y >= adjustedBlockY && y <= adjustedBlockY + cell.height) {
+              y >= blockY && y <= blockY + cell.height) {
             // 如果这是目前找到的最高层块，且可点击，则选择它
-            if (layer > highestLayer && this.isBlockClickable(block)) {
+            if (block.level > highestLevel && this.isBlockClickable(block)) {
               clickedBlock = block;
-              highestLayer = layer;
+              highestLevel = block.level;
             }
           }
         }
@@ -641,10 +726,70 @@ class Level1 {
     }
   }
   
+  removeLastCard() {
+    // 移出卡槽中的前四个卡片到下方区域
+    const cardsToRemove = Math.min(4, this.cardSlot.cards.length);
+    console.log("外面"+`Removing ${cardsToRemove} cards`);
+    if (cardsToRemove > 0) {
+      // 将前四个卡片移到移出区域
+      console.log("里面"+`Removing ${cardsToRemove} cards`);
+      const removedCards = this.cardSlot.cards.splice(0, cardsToRemove);
+      this.removedCards.cards = this.removedCards.cards.concat(removedCards);
+      
+      // 更新移出卡片区域的位置和大小
+      this.updateRemovedCardsLayout();
+    }
+  }
+  
+  updateRemovedCardsLayout() {
+    // 计算移出卡片区域的位置（卡槽下方，向下移动以避免与卡槽重叠）
+    this.removedCards.x = this.cardSlot.x;
+    this.removedCards.y = this.cardSlot.y + this.cardSlot.height + 40; // 向下留出40像素间距
+    this.removedCards.width = this.cardSlot.width;
+  }
+  
+  addRemovedCardToSlot(cardIndex) {
+    // 将移出的卡片重新添加到卡槽中
+    if (cardIndex >= 0 && cardIndex < this.removedCards.cards.length && 
+        this.cardSlot.cards.length < this.cardSlot.maxCards) {
+      const card = this.removedCards.cards.splice(cardIndex, 1)[0];
+      this.cardSlot.cards.push(card);
+      
+      // 检查是否完成成语
+      this.checkIdiomCompletion();
+    }
+  }
+  
+  shuffleBlocks() {
+    // 重新洗牌所有未被选择的块
+    const availableCharacters = [];
+    
+    // 收集所有未被选择的块的字符
+    this.allBlocks.forEach(block => {
+      if (block.status === 0) {
+        availableCharacters.push(block.type);
+      }
+    });
+    
+    // 打乱字符数组
+    this.shuffleArray(availableCharacters);
+    
+    // 重新分配字符给未被选择的块
+    let charIndex = 0;
+    this.allBlocks.forEach(block => {
+      if (block.status === 0) {
+        block.type = availableCharacters[charIndex];
+        charIndex++;
+      }
+    });
+  }
+  
   async resetLevel() {
     // 重新加载成语数据并重置关卡
     await this.loadIdiomData();
     this.initLevel();
+    // 清空移出卡片区域
+    this.removedCards.cards = [];
     // 关闭弹窗
     this.game.modalConfig.show = false;
   }
@@ -793,62 +938,62 @@ class Level1 {
     const collectedChars = this.cardSlot.cards.map(card => card.characterType);
     
     // 检查是否完成了任意一个成语
-     for (let idiom of this.selectedIdioms) {
+    for (let idiom of this.selectedIdioms) {
        // 检查是否包含成语的所有字符（不考虑顺序和数量限制）
-       const idiomChars = idiom.idiom.split('');
+      const idiomChars = idiom.idiom.split('');
       const usedCardIndices = []; // 记录用于组成成语的卡片索引
       let isMatch = true;
       
       // 统计成语中每个字符的需要数量
-       const charCount = {};
-       for (let char of idiomChars) {
-         charCount[char] = (charCount[char] || 0) + 1;
-       }
-       
+      const charCount = {};
+      for (let char of idiomChars) {
+        charCount[char] = (charCount[char] || 0) + 1;
+      }
+      
        // 统计卡槽中每个字符的可用数量
-       const availableCount = {};
-       for (let char of collectedChars) {
-         availableCount[char] = (availableCount[char] || 0) + 1;
-       }
-       
+      const availableCount = {};
+      for (let char of collectedChars) {
+        availableCount[char] = (availableCount[char] || 0) + 1;
+      }
+      
        // 检查是否有足够的字符
-       for (let char in charCount) {
-         if (!availableCount[char] || availableCount[char] < charCount[char]) {
+      for (let char in charCount) {
+        if (!availableCount[char] || availableCount[char] < charCount[char]) {
             isMatch = false;
             break;
           }
-       }
-       
+      }
+      
        // 如果字符数量匹配，找到具体的卡片索引
-       if (isMatch) {
-         const tempCharCount = {...charCount};
-         for (let i = 0; i < this.cardSlot.cards.length; i++) {
-           const char = this.cardSlot.cards[i].characterType;
-           if (tempCharCount[char] && tempCharCount[char] > 0) {
+    if (isMatch) {
+      const tempCharCount = {...charCount};
+      for (let i = 0; i < this.cardSlot.cards.length; i++) {
+        const char = this.cardSlot.cards[i].characterType;
+        if (tempCharCount[char] && tempCharCount[char] > 0) {
               usedCardIndices.push(i);
               tempCharCount[char]--;
             }
-         }
-       }
+      }
+    }
       
       
       
       if (isMatch) {
          // 移除已完成的成语
-         this.selectedIdioms = this.selectedIdioms.filter(item => item !== idiom);
-         
+      this.selectedIdioms = this.selectedIdioms.filter(item => item !== idiom);
+      
          // 只移除用于组成成语的卡片
          usedCardIndices.sort((a, b) => b - a); // 从后往前删除，避免索引变化
-         for (let index of usedCardIndices) {
-           this.cardSlot.cards.splice(index, 1);
-         }
-         
-         if (this.selectedIdioms.length === 0) {
+        for (let index of usedCardIndices) {
+          this.cardSlot.cards.splice(index, 1);
+        }
+        
+        if (this.selectedIdioms.length === 0) {
            // 检查是否真正通关：所有成语完成 + 九宫格无剩余卡片 + 卡槽为空
-           this.checkLevelComplete();
-         }
-         return;
-       }
+          this.checkLevelComplete();
+        }
+        return;
+      }
     }
   }
   
@@ -901,6 +1046,7 @@ class Level1 {
     
     // 绘制卡槽和移动中的卡片
     this.renderCardSlot();
+    this.renderRemovedCards();
     if (this.movingCard) {
       this.renderMovingCard();
     }
@@ -925,12 +1071,9 @@ class Level1 {
     
     if (!character) return;
     
-    // 计算层级偏移
-    const layer = block.level - 1;
-    const offsetX = layer * this.layerOffset;
-    const offsetY = layer * this.layerOffset;
-    const layerX = cell.x - offsetX;
-    const layerY = cell.y - offsetY;
+    // 不使用层级偏移，直接堆叠
+    const layerX = cell.x;
+    const layerY = cell.y;
     
     // 判断是否可点击
     const isClickable = this.isBlockClickable(block);
@@ -940,18 +1083,8 @@ class Level1 {
     const visibleBlocks = blocksInCell.filter(b => b.status === 0);
     const isTopMostVisible = visibleBlocks.length > 0 && block.id === visibleBlocks[visibleBlocks.length - 1].id;
     
-    // 计算透明度：只有最顶层可见卡片增加透明度
-    const alpha = isTopMostVisible ? 0.55 : 1.0; // 最顶层卡片85%透明度
-    
-    // 保存当前绘图状态
+    // 保存当前绘图状态（去除透明度与层级阴影，统一样式）
     this.ctx.save();
-    this.ctx.globalAlpha = alpha;
-    
-    // 绘制阴影（为底层块添加深度感）
-    if (layer > 0) {
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-      this.ctx.fillRect(layerX + 3, layerY + 3, cell.width, cell.height);
-    }
     
     // 绘制块背景
     this.ctx.fillStyle = isClickable ? '#f5f5dc' : '#d3d3d3';
@@ -966,9 +1099,9 @@ class Level1 {
     this.ctx.fillStyle = isClickable ? character.color : '#cccccc';
     this.ctx.fillRect(layerX + 3, layerY + 3, cell.width - 6, cell.height - 6);
     
-    // 绘制字符图标
+    // 绘制字符图标（固定字号）
     this.ctx.fillStyle = isClickable ? '#000000' : '#666666';
-    this.ctx.font = `bold ${Math.max(20, 30 - layer * 2)}px Arial`;
+    this.ctx.font = 'bold 28px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText(
       character.icon,
@@ -997,11 +1130,14 @@ class Level1 {
   renderButtons() {
     for (let button of this.buttons) {
       // 绘制按钮阴影
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      this.ctx.fillRect(button.x + 2, button.y + 2, button.width, button.height);
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      this.ctx.fillRect(button.x + 3, button.y + 3, button.width, button.height);
       
-      // 绘制按钮背景
-      this.ctx.fillStyle = button.color;
+      // 绘制按钮背景（渐变效果）
+      const gradient = this.ctx.createLinearGradient(button.x, button.y, button.x, button.y + button.height);
+      gradient.addColorStop(0, button.color);
+      gradient.addColorStop(1, this.darkenColor(button.color, 0.2));
+      this.ctx.fillStyle = gradient;
       this.ctx.fillRect(button.x, button.y, button.width, button.height);
       
       // 绘制按钮边框
@@ -1009,16 +1145,34 @@ class Level1 {
       this.ctx.lineWidth = 2;
       this.ctx.strokeRect(button.x, button.y, button.width, button.height);
       
-      // 绘制按钮图标
+      // 绘制按钮文字
       this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = '20px Arial';
+      this.ctx.font = 'bold 16px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.fillText(
-        button.icon,
+        button.text,
         button.x + button.width / 2,
-        button.y + button.height / 2 + 7
+        button.y + button.height / 2 + 5
       );
     }
+  }
+  
+  // 辅助方法：使颜色变暗
+  darkenColor(color, factor) {
+    // 简单的颜色变暗方法
+    if (color.startsWith('#')) {
+      const hex = color.slice(1);
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      
+      const newR = Math.floor(r * (1 - factor));
+      const newG = Math.floor(g * (1 - factor));
+      const newB = Math.floor(b * (1 - factor));
+      
+      return `rgb(${newR}, ${newG}, ${newB})`;
+    }
+    return color;
   }
   
   renderCardSlot() {
@@ -1098,6 +1252,74 @@ class Level1 {
     );
   }
   
+  renderRemovedCards() {
+    // 绘制移出卡片区域
+    if (this.removedCards.cards.length === 0) {
+      return;
+    }
+    
+    // 绘制移出卡片区域背景
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    this.ctx.fillRect(this.removedCards.x, this.removedCards.y, this.removedCards.width, this.removedCards.height);
+    
+    // 绘制移出卡片区域边框
+    this.ctx.strokeStyle = '#cccccc';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(this.removedCards.x, this.removedCards.y, this.removedCards.width, this.removedCards.height);
+    
+    // 计算卡片布局
+    const availableWidth = this.removedCards.width - 20; // 左右各留10px边距
+    const totalCardWidth = this.removedCards.cards.length * this.removedCards.cardWidth + 
+                          (this.removedCards.cards.length - 1) * this.removedCards.cardSpacing;
+    
+    // 如果总宽度超出可用宽度，调整卡片间距
+    let actualCardSpacing = this.removedCards.cardSpacing;
+    if (totalCardWidth > availableWidth) {
+      actualCardSpacing = Math.max(1, (availableWidth - this.removedCards.cards.length * this.removedCards.cardWidth) / 
+                                     (this.removedCards.cards.length - 1));
+    }
+    
+    // 绘制移出的卡片
+    for (let i = 0; i < this.removedCards.cards.length; i++) {
+      const card = this.removedCards.cards[i];
+      const character = this.characterTypes[card.characterType];
+      
+      if (character) {
+        const x = this.removedCards.x + 10 + i * (this.removedCards.cardWidth + actualCardSpacing);
+        const y = this.removedCards.y;
+        
+        // 绘制卡片背景
+        this.ctx.fillStyle = character.color;
+        this.ctx.fillRect(x + 1, y + 1, this.removedCards.cardWidth - 2, this.removedCards.cardHeight - 2);
+        
+        // 绘制卡片边框（高亮显示可点击）
+        this.ctx.strokeStyle = '#4caf50';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, this.removedCards.cardWidth, this.removedCards.cardHeight);
+        
+        // 绘制卡片图标
+        this.ctx.fillStyle = '#000000';
+        this.ctx.font = 'bold 16px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(
+          character.icon,
+          x + this.removedCards.cardWidth / 2,
+          y + this.removedCards.cardHeight / 2 + 5
+        );
+      }
+    }
+    
+    // 绘制移出卡片区域标题
+    this.ctx.fillStyle = '#666666';
+    this.ctx.font = '12px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(
+      "",
+      this.removedCards.x + 5,
+      this.removedCards.y - 5
+    );
+  }
+  
   renderMovingCard() {
     if (!this.movingCard || !this.movingCard.card) return;
     
@@ -1127,7 +1349,7 @@ class Level1 {
     this.ctx.fillText(
       character.icon,
       x + this.cardSlot.cardWidth / 2,
-      y + this.cardSlot.cardHeight / 2 + 5
+      y + (this.cardSlot.cardHeight / 2) + 5
     );
   }
 }
