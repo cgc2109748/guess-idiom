@@ -218,6 +218,15 @@ class Level1 {
     this.gridSpacing = 10;
     this.stackHeight = 4; // 每个位置堆叠4个格子
     this.layerOffset = 8; // 每层的偏移量，创造立体效果
+
+    // 仅用于“九宫格”的点击校准偏移（不影响按钮与移出卡槽）
+    // 正值表示：命中检测使用 y' = y + gridHitOffsetY
+    // 全局默认不偏移（保持按钮与移出卡槽完全不变）
+    this.gridHitOffsetX = 0;
+    // 将九宫格点击命中区域整体下移，以修正“偏上 3/4 卡片高度 + 1 个空隙”的问题
+    this.gridHitOffsetY = (3 * this.cellSize) / 4 + this.gridSpacing;
+    // 间隙不可点击：不再拉长点击区域高度
+    this.extraHitHeightY = 0;
     
     // 字符类型（基于成语字符）
     this.characterTypes = {};
@@ -470,11 +479,9 @@ class Level1 {
       return;
     }
     
-    // 检查网格点击
-    // 仅用于九宫格命中检测：将事件坐标向左上回调 2/3 × cellSize
-    const xForGrid = x - (2 * this.cellSize) / 3;
-    const yForGrid = y - (2 * this.cellSize) / 3;
-    const clickedBlock = this.getClickedBlock(xForGrid, yForGrid);
+    // 检查网格点击（按钮与移出卡槽不受影响）
+    // 命中判定偏移在 getClickedBlock 内部施加到九宫格的矩形上
+    const clickedBlock = this.getClickedBlock(x, y);
     if (clickedBlock) {
       this.doClickBlock(clickedBlock);
     }
@@ -580,12 +587,13 @@ class Level1 {
           // 彻底修正：点击命中区域严格对齐渲染区域
           // 渲染位置：layerX = cell.x, layerY = cell.y (参见renderSingleBlock)
           // 因此命中区域应该完全一致，且高度必须等于cellSize
-          const blockX = cell.x;
-          const blockY = cell.y; // 与渲染的layerY完全一致，无任何偏移
+          const blockX = cell.x + (this.gridHitOffsetX || 0);
+          const blockY = cell.y + (this.gridHitOffsetY || 0); // 仅用于点击命中校准
           const blockWidth = cell.width;  // = this.cellSize = 60
-          const blockHeight = cell.height; // = this.cellSize = 60
+          // 命中高度与卡片等高，间隙不可点击
+          const blockHeight = cell.height + (this.extraHitHeightY || 0);
           
-          // 检查点击是否在块范围内（完整覆盖卡片可视区域）
+          // 检查点击是否在块范围内（仅卡片区域）
           if (x >= blockX && x <= blockX + blockWidth &&
               y >= blockY && y <= blockY + blockHeight) {
             // 如果这是目前找到的最高层块，且可点击，则选择它
@@ -1062,8 +1070,7 @@ class Level1 {
     // 绘制网格（改进的渲染逻辑）
     this.renderBlocks();
     
-    // 可视化：在九宫格卡片上覆盖显示真实点击区域（命中框）
-    this.renderGridHitboxes();
+    // 调试覆盖层已关闭（不再绘制命中框）
     
     // 绘制底部功能按钮
     this.renderButtons();
@@ -1112,12 +1119,15 @@ class Level1 {
           this.ctx.strokeStyle = 'rgba(220, 20, 60, 0.9)';     // 红色描边
         }
         
-        // 匹配反馈：采用 2/3 × cellSize 的左上偏移，展示真正促发命中的屏幕区域
-        const visOffset = (2 * this.cellSize) / 3;
-         const vx = cell.x - visOffset;
-         const vy = cell.y - visOffset;
-         this.ctx.fillRect(vx, vy, cell.width, cell.height);
-         this.ctx.strokeRect(vx, vy, cell.width, cell.height);
+        // 覆盖层与卡片渲染位置完全一致，无额外偏移
+        const vx = cell.x + (this.gridHitOffsetX || 0);
+        const vy = cell.y + (this.gridHitOffsetY || 0);
+        // 覆盖层与卡片渲染位置完全一致（不使用命中偏移）
+        const vxCard = cell.x;
+        const vyCard = cell.y;
+        const vh = cell.height;
+        this.ctx.fillRect(vxCard, vyCard, cell.width, vh);
+        this.ctx.strokeRect(vxCard, vyCard, cell.width, vh);
       }
     }
     
