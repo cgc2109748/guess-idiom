@@ -1,5 +1,6 @@
-// 引入Level1类
+// 引入Level1/Level2类
 const Level1 = require('./level1.js');
+const Level2 = require('./level2.js');
 
 // 游戏状态枚举
 const GameState = {
@@ -48,6 +49,8 @@ class GuessIdiomGame {
     // 当前关卡实例
     this.currentLevel = null;
     
+    // 暴露枚举到实例，给各关使用（只读约定）
+    this.GameState = GameState;
     this.init();
   }
   
@@ -65,6 +68,12 @@ class GuessIdiomGame {
   async initLevel1() {
     // 创建第一关实例
     this.currentLevel = new Level1(this);
+    await this.currentLevel.init();
+  }
+  
+  async initLevel2() {
+    // 创建第二关实例
+    this.currentLevel = new Level2(this);
     await this.currentLevel.init();
   }
   

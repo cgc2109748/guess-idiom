@@ -1,5 +1,5 @@
 // 第一关：猜成语游戏逻辑
-class Level1 {
+class Level2 {
   constructor(game) {
     this.game = game;
     this.ctx = game.ctx;
@@ -212,7 +212,7 @@ class Level1 {
   
   initLevel() {
     // 初始化猜成语游戏
-    this.gameDate = '9月9日';
+    this.gameDate = '9月15日';
     this.gridSize = 3;
     this.cellSize = 60;
     this.gridSpacing = 10;
@@ -1434,4 +1434,4 @@ class Level1 {
 }
 
 // 导出Level1类供其他模块使用
-module.exports = Level1;
+module.exports = Level2;
