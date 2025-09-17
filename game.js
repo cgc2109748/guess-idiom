@@ -75,6 +75,12 @@ class GuessIdiomGame {
     // 创建第二关实例
     this.currentLevel = new Level2(this);
     await this.currentLevel.init();
+    this.gameState = GameState.LEVEL2;
+  }
+  
+  async switchToLevel2() {
+    // 切换到第二关
+    await this.initLevel2();
   }
   
   startGameLoop() {

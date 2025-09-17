@@ -213,19 +213,22 @@ class Level2 {
   initLevel() {
     // 初始化猜成语游戏
     this.gameDate = '9月15日';
-    this.gridSize = 3;
-    this.cellSize = 60;
-    this.gridSpacing = 10;
-    this.stackHeight = 4; // 每个位置堆叠4个格子
-    this.layerOffset = 8; // 每层的偏移量，创造立体效果
+    
+    // 菱形布局配置
+    this.diamondLayers = 8; // 每一叠卡片都有8层
+    this.bottomRowLayers = 0; // 不要下方区域
+    this.bottomRowCols = 0; // 不要下方区域
+    
+    // 四个角的三角形区域配置
+    this.triangleLayers = 8; // 每个三角形区域的卡片层数
+    
+    this.cellSize = 35; // 缩小卡片尺寸使整个区域在页面上半部分
+    this.gridSpacing = 1; // 进一步减小间距
+    this.layerOffset = 0; // 不使用层级偏移
 
-    // 仅用于“九宫格”的点击校准偏移（不影响按钮与移出卡槽）
-    // 正值表示：命中检测使用 y' = y + gridHitOffsetY
-    // 全局默认不偏移（保持按钮与移出卡槽完全不变）
+    // 点击校准偏移
     this.gridHitOffsetX = 0;
-    // 将九宫格点击命中区域整体下移，以修正“偏上 3/4 卡片高度 + 1 个空隙”的问题
     this.gridHitOffsetY = (3 * this.cellSize) / 4 + this.gridSpacing;
-    // 间隙不可点击：不再拉长点击区域高度
     this.extraHitHeightY = 0;
     
     // 字符类型（基于成语字符）
@@ -288,46 +291,63 @@ class Level2 {
     this.animationDuration = 500; // 毫秒
   }
   
-  // 初始化块数据结构（参考yulegeyu-master的设计）
+  // 初始化块数据结构（菱形布局 + 四个三角形区域）
   initBlocks() {
     this.allBlocks = [];
     this.blockData = {};
-    this.chessBoard = [];
+    this.diamondPositions = []; // 菱形位置
+    this.trianglePositions = []; // 四个三角形区域位置
     
-    // 初始化棋盘
-    for (let i = 0; i < this.gridSize; i++) {
-      this.chessBoard[i] = [];
-      for (let j = 0; j < this.gridSize; j++) {
-        this.chessBoard[i][j] = {
-          blocks: []
-        };
-      }
-    }
+    // 生成菱形位置
+    this.generateDiamondPositions();
     
-    // 创建块对象
+    // 生成四个三角形区域位置
+    this.generateTrianglePositions();
+    
+    // 创建菱形区域的块
     let blockId = 0;
-    for (let row = 0; row < this.gridSize; row++) {
-      for (let col = 0; col < this.gridSize; col++) {
-        for (let layer = 0; layer < this.stackHeight; layer++) {
-          const charType = this.idiomCharacters[blockId % this.idiomCharacters.length];
-          const block = {
-            id: blockId,
-            x: row,
-            y: col,
-            level: layer + 1,
-            type: charType,
-            status: 0, // 0-正常, 1-已点击, 2-已消除
-            higherThanBlocks: [],
-            lowerThanBlocks: []
-          };
-          
-          this.allBlocks.push(block);
-          this.blockData[blockId] = block;
-          this.chessBoard[row][col].blocks.push(block);
-          blockId++;
-        }
+    this.diamondPositions.forEach(pos => {
+      for (let layer = 0; layer < this.diamondLayers; layer++) {
+        const charType = this.idiomCharacters[blockId % this.idiomCharacters.length];
+        const block = {
+          id: blockId,
+          x: pos.x,
+          y: pos.y,
+          level: layer + 1,
+          type: charType,
+          status: 0,
+          higherThanBlocks: [],
+          lowerThanBlocks: [],
+          area: 'diamond' // 标记为菱形区域
+        };
+        
+        this.allBlocks.push(block);
+        this.blockData[blockId] = block;
+        blockId++;
       }
-    }
+    });
+    
+    // 创建四个三角形区域的块
+    this.trianglePositions.forEach(pos => {
+      for (let layer = 0; layer < this.triangleLayers; layer++) {
+        const charType = this.idiomCharacters[blockId % this.idiomCharacters.length];
+        const block = {
+          id: blockId,
+          x: pos.x,
+          y: pos.y,
+          level: layer + 1,
+          type: charType,
+          status: 0,
+          higherThanBlocks: [],
+          lowerThanBlocks: [],
+          area: pos.area // 标记为对应的三角形区域
+        };
+        
+        this.allBlocks.push(block);
+        this.blockData[blockId] = block;
+        blockId++;
+      }
+    });
     
     // 建立层级关系
     this.allBlocks.forEach(block => {
@@ -335,17 +355,86 @@ class Level2 {
     });
   }
   
-  // 生成块的层级关系（参考yulegeyu-master）
+  // 生成菱形位置（8层菱形）
+  generateDiamondPositions() {
+    this.diamondPositions = [];
+    const centerX = 4; // 菱形中心X坐标
+    const centerY = 4; // 菱形中心Y坐标
+    
+    // 菱形的每一行（删除第四行）
+    const diamondPattern = [
+      [0], // 第1行：1个
+      [-1, 1], // 第2行：2个
+      [-2, 0, 2], // 第3行：3个
+      // 删除第4行：[-3, -1, 1, 3]
+      [-3, -1, 1, 3], // 第5行：4个
+      [-2, 0, 2], // 第6行：3个
+      [-1, 1], // 第7行：2个
+      [0] // 第8行：1个
+    ];
+    
+    diamondPattern.forEach((row, rowIndex) => {
+      const y = centerY + rowIndex - 3; // 调整Y坐标使菱形居中（删除一行后调整）
+      row.forEach(offset => {
+        this.diamondPositions.push({
+          x: centerX + offset,
+          y: y
+        });
+      });
+    });
+  }
+  
+  // 生成四个三角形区域位置
+  generateTrianglePositions() {
+    this.trianglePositions = [];
+    
+    // 左上角三角形区域（倒三角形：第一行2列，第二行1列与第一列对齐）
+    // 与菱形区域的第2、3行对齐（Y坐标2、3）
+    this.trianglePositions.push(
+      { x: 0, y: 2, area: 'topLeft' },
+      { x: 1, y: 2, area: 'topLeft' },
+      { x: 0, y: 3, area: 'topLeft' }
+    );
+    
+    // 右上角三角形区域（倒三角形：第一行2列，第二行1列与第二列对齐）
+    // 与菱形区域的第2、3行对齐（Y坐标2、3）
+    this.trianglePositions.push(
+      { x: 7, y: 2, area: 'topRight' },
+      { x: 8, y: 2, area: 'topRight' },
+      { x: 8, y: 3, area: 'topRight' }
+    );
+    
+    // 左下角三角形区域（正三角形：第一行1列与第二行第一列对齐，第二行2列）
+    // 与菱形区域的第6、7行对齐（Y坐标5、6）
+    this.trianglePositions.push(
+      { x: 0, y: 5, area: 'bottomLeft' },
+      { x: 0, y: 6, area: 'bottomLeft' },
+      { x: 1, y: 6, area: 'bottomLeft' }
+    );
+    
+    // 右下角三角形区域（正三角形：第一行1列与第二行第二列对齐，第二行2列）
+    // 与菱形区域的第6、7行对齐（Y坐标5、6）
+    this.trianglePositions.push(
+      { x: 8, y: 5, area: 'bottomRight' },
+      { x: 7, y: 6, area: 'bottomRight' },
+      { x: 8, y: 6, area: 'bottomRight' }
+    );
+  }
+  
+  // 生成块的层级关系
   genLevelRelation(block) {
-    const { x, y, level } = block;
+    const { x, y, level, area } = block;
     
     // 清空之前的关系
     block.higherThanBlocks = [];
     block.lowerThanBlocks = [];
     
     // 在同一位置的其他块建立层级关系
-    const blocksInSameCell = this.chessBoard[x][y].blocks;
-    blocksInSameCell.forEach(otherBlock => {
+    const blocksInSamePosition = this.allBlocks.filter(otherBlock => 
+      otherBlock.x === x && otherBlock.y === y && otherBlock.area === area
+    );
+    
+    blocksInSamePosition.forEach(otherBlock => {
       if (otherBlock.id !== block.id) {
         if (otherBlock.level > level) {
           // 其他块压在当前块上面
@@ -357,32 +446,50 @@ class Level2 {
   }
   
   calculateGrid() {
-    // 计算网格的总尺寸
-    const totalGridWidth = this.gridSize * this.cellSize + (this.gridSize - 1) * this.gridSpacing;
-    const totalGridHeight = this.gridSize * this.cellSize + (this.gridSize - 1) * this.gridSpacing;
+    // 计算所有区域的边界（菱形 + 三角形）
+    const allPositions = [...this.diamondPositions, ...this.trianglePositions];
+    const minX = Math.min(...allPositions.map(p => p.x));
+    const maxX = Math.max(...allPositions.map(p => p.x));
+    const minY = Math.min(...allPositions.map(p => p.y));
+    const maxY = Math.max(...allPositions.map(p => p.y));
     
-    // 计算网格的起始位置（居中）
-    const startX = (this.width - totalGridWidth) / 2;
-    const startY = 120; // 从标题下方开始
+    // 计算总布局尺寸（菱形区域 + 三角形区域）
+    const totalWidth = (maxX - minX) * (this.cellSize + this.gridSpacing) + this.cellSize;
+    const totalHeight = (maxY - minY) * (this.cellSize + this.gridSpacing) + this.cellSize;
     
-    // 初始化网格单元格位置
+    // 计算起始位置使布局居中，并向上移动三分之一卡片高度
+    this.gridStartX = (this.width - totalWidth) / 2;
+    this.gridStartY = 120 - this.cellSize / 3; // 从顶部留出空间给标题、日期和剩余卡片数，向上移动1/3卡片高度
+    
+    // 初始化网格单元格位置（菱形区域 + 三角形区域）
     this.gridCells = [];
-    for (let row = 0; row < this.gridSize; row++) {
-      this.gridCells[row] = [];
-      for (let col = 0; col < this.gridSize; col++) {
-        this.gridCells[row][col] = {
-          x: startX + col * (this.cellSize + this.gridSpacing),
-          y: startY + row * (this.cellSize + this.gridSpacing),
-          width: this.cellSize,
-          height: this.cellSize
-        };
+    allPositions.forEach(pos => {
+      if (!this.gridCells[pos.x]) {
+        this.gridCells[pos.x] = [];
       }
-    }
+      this.gridCells[pos.x][pos.y] = {
+        x: this.gridStartX + (pos.x - minX) * (this.cellSize + this.gridSpacing),
+        y: this.gridStartY + (pos.y - minY) * (this.cellSize + this.gridSpacing),
+        width: this.cellSize,
+        height: this.cellSize
+      };
+    });
     
-    // 计算卡槽位置（在网格下方）
-    this.cardSlot.x = 20;
-    this.cardSlot.y = startY + totalGridHeight + 40;
-    this.cardSlot.width = this.width - 40;
+    // 计算卡槽位置（在整个布局下方）
+    const slotY = this.gridStartY + totalHeight + 40;
+    this.cardSlot.y = slotY;
+    this.cardSlot.x = (this.width - this.cardSlot.maxCards * (this.cardSlot.cardWidth + this.cardSlot.cardSpacing)) / 2;
+    this.cardSlot.width = this.cardSlot.maxCards * (this.cardSlot.cardWidth + this.cardSlot.cardSpacing);
+    
+    // 计算移出卡片区域位置（在卡槽下方，与按钮保持间隔）
+    this.removedCards.y = slotY + this.cardSlot.height + 30; // 与卡槽保持30px间隙，与按钮保持距离
+    this.removedCards.x = 20;
+    this.removedCards.width = this.width - 40;
+    
+    // 确保移出卡片区域不会超出画布
+    if (this.removedCards.y + this.removedCards.height > this.height - 100) {
+      this.removedCards.y = this.height - this.removedCards.height - 100;
+    }
   }
   
   initButtons() {
@@ -573,38 +680,31 @@ class Level2 {
     let clickedBlock = null;
     let highestLevel = -1;
     
-    // 遍历所有网格位置
-    for (let row = 0; row < this.gridSize; row++) {
-      for (let col = 0; col < this.gridSize; col++) {
-        const cell = this.gridCells[row][col];
-        const blocksInCell = this.chessBoard[row][col].blocks;
-        
-        // 从最高层开始检查
-        for (let i = blocksInCell.length - 1; i >= 0; i--) {
-          const block = blocksInCell[i];
-          if (block.status !== 0) continue; // 跳过已移除的块
-          
-          // 彻底修正：点击命中区域严格对齐渲染区域
-          // 渲染位置：layerX = cell.x, layerY = cell.y (参见renderSingleBlock)
-          // 因此命中区域应该完全一致，且高度必须等于cellSize
-          const blockX = cell.x + (this.gridHitOffsetX || 0);
-          const blockY = cell.y + (this.gridHitOffsetY || 0); // 仅用于点击命中校准
-          const blockWidth = cell.width;  // = this.cellSize = 60
-          // 命中高度与卡片等高，间隙不可点击
-          const blockHeight = cell.height + (this.extraHitHeightY || 0);
-          
-          // 检查点击是否在块范围内（仅卡片区域）
-          if (x >= blockX && x <= blockX + blockWidth &&
-              y >= blockY && y <= blockY + blockHeight) {
-            // 如果这是目前找到的最高层块，且可点击，则选择它
-            if (block.level > highestLevel && this.isBlockClickable(block)) {
-              clickedBlock = block;
-              highestLevel = block.level;
-            }
-          }
+    // 遍历所有块
+    this.allBlocks.forEach(block => {
+      if (block.status !== 0) return; // 跳过已移除的块
+      
+      // 获取块的网格单元格
+      if (!this.gridCells[block.x] || !this.gridCells[block.x][block.y]) return;
+      
+      const cell = this.gridCells[block.x][block.y];
+      
+      // 计算块的渲染位置（不使用层级偏移）
+      const blockX = cell.x + (this.gridHitOffsetX || 0);
+      const blockY = cell.y + (this.gridHitOffsetY || 0);
+      const blockWidth = cell.width;
+      const blockHeight = cell.height + (this.extraHitHeightY || 0);
+      
+      // 检查点击是否在块范围内
+      if (x >= blockX && x <= blockX + blockWidth &&
+          y >= blockY && y <= blockY + blockHeight) {
+        // 如果这是目前找到的最高层块，且可点击，则选择它
+        if (block.level > highestLevel && this.isBlockClickable(block)) {
+          clickedBlock = block;
+          highestLevel = block.level;
         }
       }
-    }
+    });
     
     return clickedBlock;
   }
@@ -617,14 +717,17 @@ class Level2 {
   }
   
   getTopClickableBlock(row, col) {
-    const blocks = this.chessBoard[row][col].blocks;
+    // 找到指定位置的所有块
+    const blocksAtPosition = this.allBlocks.filter(block => 
+      block.x === row && block.y === col && block.status === 0
+    );
     
     // 找到最高层的可点击块
     let topBlock = null;
     let maxLevel = 0;
     
-    for (let block of blocks) {
-      if (block.status === 0 && this.isBlockClickable(block) && block.level > maxLevel) {
+    for (let block of blocksAtPosition) {
+      if (this.isBlockClickable(block) && block.level > maxLevel) {
         topBlock = block;
         maxLevel = block.level;
       }
@@ -773,7 +876,7 @@ class Level2 {
   updateRemovedCardsLayout() {
     // 计算移出卡片区域的位置（卡槽下方，向下移动以避免与卡槽重叠）
     this.removedCards.x = this.cardSlot.x;
-    this.removedCards.y = this.cardSlot.y + this.cardSlot.height + 40; // 向下留出40像素间距
+    this.removedCards.y = this.cardSlot.y + this.cardSlot.height + 10; // 向下留出40像素间距
     this.removedCards.width = this.cardSlot.width;
   }
   
@@ -1067,6 +1170,13 @@ class Level2 {
     context.font = '16px Arial';
     context.fillText(this.gameDate, this.width / 2, 70);
     
+    // 绘制剩余卡片数量（在日期下方）
+    const remainingBlocks = this.allBlocks.filter(block => block.status === 0).length;
+    context.fillStyle = '#4caf50';
+    context.font = 'bold 16px Arial';
+    context.textAlign = 'center';
+    context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 95);
+    
     // 绘制难度等级
     context.fillStyle = '#ff8c42';
     context.font = 'bold 14px Arial';
@@ -1141,28 +1251,32 @@ class Level2 {
   }
   
   renderSingleBlock(block) {
+    if (!this.gridCells[block.x] || !this.gridCells[block.x][block.y]) return;
+    
     const cell = this.gridCells[block.x][block.y];
     const character = this.characterTypes[block.type];
     
     if (!character) return;
     
-    // 不使用层级偏移，直接堆叠
+    // 不使用层级偏移，所有卡片在同一位置
     const layerX = cell.x;
     const layerY = cell.y;
     
     // 判断是否可点击
     const isClickable = this.isBlockClickable(block);
     
-    // 判断是否是该格子中最顶层的可见卡片
-    const blocksInCell = this.chessBoard[block.x][block.y].blocks;
-    const visibleBlocks = blocksInCell.filter(b => b.status === 0);
-    const isTopMostVisible = visibleBlocks.length > 0 && block.id === visibleBlocks[visibleBlocks.length - 1].id;
+    // 判断是否是该位置中最顶层的可见卡片
+    const blocksAtPosition = this.allBlocks.filter(b => 
+      b.x === block.x && b.y === block.y && b.status === 0
+    );
+    const isTopMostVisible = blocksAtPosition.length > 0 && 
+      block.level === Math.max(...blocksAtPosition.map(b => b.level));
     
     // 保存当前绘图状态（为最顶层卡片设置透明度以便看到下一张）
     this.ctx.save();
     this.ctx.globalAlpha = isTopMostVisible ? 0.5 : 1.0;
     
-    // 绘制块背景
+    // 绘制块背景（不旋转）
     this.ctx.fillStyle = isClickable ? '#f5f5dc' : '#d3d3d3';
     this.ctx.fillRect(layerX, layerY, cell.width, cell.height);
     
@@ -1175,14 +1289,14 @@ class Level2 {
     this.ctx.fillStyle = isClickable ? character.color : '#cccccc';
     this.ctx.fillRect(layerX + 3, layerY + 3, cell.width - 6, cell.height - 6);
     
-    // 绘制字符图标（固定字号）
+    // 绘制字符图标（正着显示）
     this.ctx.fillStyle = isClickable ? '#000000' : '#666666';
-    this.ctx.font = 'bold 28px Arial';
+    this.ctx.font = 'bold 20px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText(
       character.icon,
       layerX + cell.width / 2,
-      layerY + cell.height / 2 + 10
+      layerY + cell.height / 2 + 7
     );
     
     // 恢复绘图状态

@@ -386,11 +386,11 @@ class Level1 {
   }
   
   initButtons() {
-    // 计算按钮布局 - 三个按钮居中排列
+    // 计算按钮布局 - 四个按钮居中排列
     const buttonWidth = 80;
     const buttonHeight = 50;
-    const buttonSpacing = 20;
-    const totalWidth = 3 * buttonWidth + 2 * buttonSpacing;
+    const buttonSpacing = 15;
+    const totalWidth = 4 * buttonWidth + 3 * buttonSpacing;
     const startX = (this.width - totalWidth) / 2;
     const buttonY = this.height - 120; // 向下调整到距离底部120像素
     
@@ -427,6 +427,17 @@ class Level1 {
         icon: '🔀',
         text: '洗牌',
         action: () => this.shuffleBlocks()
+      },
+      {
+        id: 'nextLevel',
+        x: startX + 3 * (buttonWidth + buttonSpacing),
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight,
+        color: '#2196f3',
+        icon: '➡️',
+        text: '下一关',
+        action: () => this.goToNextLevel()
       }
     ];
   }
@@ -828,6 +839,11 @@ class Level1 {
     const currentIndex = types.indexOf(this.selectedCharacterType);
     const nextIndex = (currentIndex + 1) % types.length;
     this.selectedCharacterType = types[nextIndex];
+  }
+  
+  goToNextLevel() {
+    // 跳转到第二关
+    this.game.switchToLevel2();
   }
   
   // 检查游戏是否结束
