@@ -36,8 +36,14 @@ class Level2 {
     this.cellSize = 60;
     this.gridSpacing = 10;
     
-    // 难度系数配置 (1-10，1最简单，10最难)
-    this.difficultyLevel = 1;
+    // 难度系数配置 (1-10，1最简单，10 hardest)
+    this.difficultyLevel = 6;
+    // 调试：显示7×9矩阵覆盖层
+    this.showMatrixOverlay = false;
+
+    // 按钮使用次数限制（第二关每个按钮各3次）
+    this.buttonUsageLimits = { remove: 3, undo: 3, shuffle: 3 };
+    this.buttonUsageRemaining = { remove: 3, undo: 3, shuffle: 3 };
   }
   
   async init() {
@@ -255,9 +261,106 @@ class Level2 {
     
     // 计算网格位置
     this.calculateGrid();
+
+    // 基于用户提供的第一行坐标进行命中区域校准（全局偏移与尺寸修正）
+    this.hitCalibration = { offsetX: 0, offsetY: 0, extraWidth: 0, extraHeight: 0 };
+    (() => {
+      try {
+        const allPositions = [...this.diamondPositions, ...this.trianglePositions];
+        if (allPositions.length === 0) return;
+        const minY = Math.min(...allPositions.map(p => p.y));
+        const rowCells = allPositions
+          .filter(p => p.y === minY)
+          .map(p => (this.gridCells[p.x] && this.gridCells[p.x][p.y]) ? this.gridCells[p.x][p.y] : null)
+          .filter(Boolean);
+        if (rowCells.length === 0) return;
+        const leftCell = rowCells.reduce((min, c) => c.x < min.x ? c : min);
+        const rightCell = rowCells.reduce((max, c) => c.x > max.x ? c : max);
+        const computedLeftTopX = leftCell.x;
+        const computedLeftTopY = leftCell.y;
+        const computedRightBottomX = rightCell.x + rightCell.width;
+        const computedRightBottomY = rightCell.y + rightCell.height;
+        const targetLeftTopX = 177.484375;
+        const targetLeftTopY = 137.875;
+        const targetRightBottomX = 212.953125;
+        const targetRightBottomY = 179.28125;
+        this.hitCalibration.offsetX = targetLeftTopX - computedLeftTopX;
+        this.hitCalibration.offsetY = targetLeftTopY - computedLeftTopY;
+        const computedWidth = computedRightBottomX - computedLeftTopX;
+        const computedHeight = computedRightBottomY - computedLeftTopY;
+        const targetWidth = targetRightBottomX - targetLeftTopX;
+        const targetHeight = targetRightBottomY - targetLeftTopY;
+        this.hitCalibration.extraWidth = targetWidth - computedWidth;
+        this.hitCalibration.extraHeight = targetHeight - computedHeight;
+        console.log('[命中校准] offsetX:', this.hitCalibration.offsetX.toFixed(6), 'offsetY:', this.hitCalibration.offsetY.toFixed(6), 'extraW:', this.hitCalibration.extraWidth.toFixed(6), 'extraH:', this.hitCalibration.extraHeight.toFixed(6));
+      } catch (e) {
+        console.warn('命中校准失败：', e);
+      }
+    })();
     
     // 初始化按钮
     this.initButtons();
+    
+    // 打印每行卡片的边界坐标
+    this.printRowBounds();
+  }
+  
+  printRowBounds() {
+    console.log('=== 第二关卡片行边界坐标 ===');
+    console.log('调试信息：');
+    console.log('- cellSize:', this.cellSize);
+    console.log('- gridSpacing:', this.gridSpacing);
+    console.log('- gridStartX:', this.gridStartX);
+    console.log('- gridStartY:', this.gridStartY);
+    console.log('- canvas width:', this.width);
+    console.log('- canvas height:', this.height);
+    console.log('- devicePixelRatio:', window.devicePixelRatio || 1);
+    
+    // 统计每行的卡片位置
+    const rowData = {};
+    
+    // 遍历所有位置，找出每行的卡片
+    const allPositions = [...this.diamondPositions, ...this.trianglePositions];
+    allPositions.forEach(pos => {
+      if (!rowData[pos.y]) {
+        rowData[pos.y] = [];
+      }
+      if (this.gridCells[pos.x] && this.gridCells[pos.x][pos.y]) {
+        const cell = this.gridCells[pos.x][pos.y];
+        rowData[pos.y].push({
+          x: pos.x,
+          cellX: cell.x,
+          cellY: cell.y,
+          width: cell.width,
+          height: cell.height
+        });
+      }
+    });
+    
+    // 按行号排序并打印每行的边界（以外层卡片矩形为准，精确到小数）
+    const sortedRows = Object.keys(rowData).map(Number).sort((a, b) => a - b);
+    sortedRows.forEach((rowIndex, displayIndex) => {
+      const cells = rowData[rowIndex];
+      if (cells.length > 0) {
+        // 找到最左边和最右边的卡片
+        const leftmost = cells.reduce((min, cell) => cell.cellX < min.cellX ? cell : min);
+        const rightmost = cells.reduce((max, cell) => cell.cellX > max.cellX ? cell : max);
+        
+        // 外层卡片矩形（与渲染背景/边框一致），应用全局校准
+        const offsetX = (this.hitCalibration?.offsetX || 0);
+        const offsetY = (this.hitCalibration?.offsetY || 0);
+        const extraW = (this.hitCalibration?.extraWidth || 0);
+        const extraH = (this.hitCalibration?.extraHeight || 0);
+        const leftTopX = leftmost.cellX + offsetX;
+        const leftTopY = leftmost.cellY + offsetY;
+        const rightBottomX = rightmost.cellX + rightmost.width + extraW;
+        const rightBottomY = rightmost.cellY + rightmost.height + extraH;
+        
+        console.log(`第${displayIndex + 1}行：左上坐标：(${leftTopX.toFixed(6)}, ${leftTopY.toFixed(6)})，右下坐标：(${rightBottomX.toFixed(6)}, ${rightBottomY.toFixed(6)})`);
+      }
+    });
+    
+    console.log('=== 坐标打印完成 ===');
   }
   
   initCardSlot() {
@@ -277,6 +380,7 @@ class Level2 {
     // 移出卡片区域配置
     this.removedCards = {
       cards: [],
+      maxCards: 10,
       x: 0,
       y: 0,
       width: 0,
@@ -461,6 +565,16 @@ class Level2 {
     this.gridStartX = (this.width - totalWidth) / 2;
     this.gridStartY = 120 - this.cellSize / 3; // 从顶部留出空间给标题、日期和剩余卡片数，向上移动1/3卡片高度
     
+    // 存储网格范围与步长，用于“7行×9列”矩阵命中检测
+    this.minGridX = minX;
+    this.maxGridX = maxX;
+    this.minGridY = minY;
+    this.maxGridY = maxY;
+    this.stepX = this.cellSize + this.gridSpacing;
+    this.stepY = this.cellSize + this.gridSpacing;
+    this.matrixCols = this.maxGridX - this.minGridX + 1; // 预期=9
+    this.matrixRows = this.maxGridY - this.minGridY + 1; // 预期=7
+    
     // 初始化网格单元格位置（菱形区域 + 三角形区域）
     this.gridCells = [];
     allPositions.forEach(pos => {
@@ -539,6 +653,9 @@ class Level2 {
   }
   
   handleTouch(x, y) {
+    // 打印点击坐标到控制台
+    console.log(`点击坐标: (${x}, ${y})`);
+    
     // 检查是否点击了模态框关闭按钮
     if (this.game.showModal) {
       const modalWidth = this.width - 60;
@@ -670,43 +787,50 @@ class Level2 {
     if (cardIndex >= 0 && cardIndex < this.cardSlot.cards.length) {
       const card = this.cardSlot.cards.splice(cardIndex, 1)[0];
       this.removedCards.cards.push(card);
-      
+
       // 更新移出卡片区域的位置和大小
       this.updateRemovedCardsLayout();
+
+      // 限制：移出区最多10张，超过立即判定失败
+      if (this.removedCards.maxCards != null && this.removedCards.cards.length > this.removedCards.maxCards) {
+        this.showGameFailure();
+      }
     }
   }
   
   getClickedBlock(x, y) {
-    let clickedBlock = null;
-    let highestLevel = -1;
+    // 基于“7行×9列”矩阵的命中检测：
+    // - 先把屏幕坐标量化到矩阵中的列(col: 0..8)、行(row0: 0..6)
+    // - 再映射到布局坐标：(gridX, gridY) => (col, row0 + minGridY)
+    // - 如果该格子存在可点击的顶层卡片，则选择它；否则无反应
+    if (this.gridStartX == null || this.gridStartY == null) return null;
+    const stepX = this.stepX || (this.cellSize + this.gridSpacing);
+    const stepY = this.stepY || (this.cellSize + this.gridSpacing);
+    const minGX = (this.minGridX != null) ? this.minGridX : 0;
+    const minGY = (this.minGridY != null) ? this.minGridY : 0;
+    const maxCols = this.matrixCols || ((this.maxGridX != null && this.minGridX != null) ? (this.maxGridX - this.minGridX + 1) : 0);
+    const maxRows = this.matrixRows || ((this.maxGridY != null && this.minGridY != null) ? (this.maxGridY - this.minGridY + 1) : 0);
     
-    // 遍历所有块
-    this.allBlocks.forEach(block => {
-      if (block.status !== 0) return; // 跳过已移除的块
-      
-      // 获取块的网格单元格
-      if (!this.gridCells[block.x] || !this.gridCells[block.x][block.y]) return;
-      
-      const cell = this.gridCells[block.x][block.y];
-      
-      // 计算块的渲染位置（不使用层级偏移）
-      const blockX = cell.x + (this.gridHitOffsetX || 0);
-      const blockY = cell.y + (this.gridHitOffsetY || 0);
-      const blockWidth = cell.width;
-      const blockHeight = cell.height + (this.extraHitHeightY || 0);
-      
-      // 检查点击是否在块范围内
-      if (x >= blockX && x <= blockX + blockWidth &&
-          y >= blockY && y <= blockY + blockHeight) {
-        // 如果这是目前找到的最高层块，且可点击，则选择它
-        if (block.level > highestLevel && this.isBlockClickable(block)) {
-          clickedBlock = block;
-          highestLevel = block.level;
-        }
-      }
-    });
+    const col = Math.floor((x - (this.gridStartX + (this.hitCalibration?.offsetX || 0))) / stepX);
     
-    return clickedBlock;
+    // 行计算采用逐行上移的bias，使每一行的可点区域被“拉高”；首行保持不变
+    const yAdj = y - (this.gridStartY + (this.hitCalibration?.offsetY || 0));
+    if (yAdj < 0) return null;
+    const roughRow = Math.floor(yAdj / stepY);
+    const perRowBias = (this.hitRowBiasPerRow != null) ? this.hitRowBiasPerRow : Math.round(this.cellSize * 0.15);
+    // 针对指定行额外“拉长”点击高度（默认拉长第5、第6行：索引4、5）
+    const extraBoostMap = this.hitRowExtraBoost || { 4: Math.round(this.cellSize * 0.5), 5: Math.round(this.cellSize * 1.0) };
+    const extraBoost = extraBoostMap[roughRow] || 0;
+    const yBiased = yAdj - perRowBias * roughRow - extraBoost;
+    let row0 = Math.floor(yBiased / stepY);
+    if (row0 < 0) row0 = 0;
+    if (row0 >= maxRows) row0 = maxRows - 1;
+    
+    const gridX = minGX + col;
+    const gridY = minGY + row0;
+    
+    const topBlock = this.getTopClickableBlock(gridX, gridY);
+    return topBlock || null;
   }
   
   handleGridClick(row, col) {
@@ -833,7 +957,28 @@ class Level2 {
   
   handleButtonClick(buttonId) {
     const button = this.buttons.find(b => b.id === buttonId);
-    if (button && button.action) {
+    if (!button) return;
+
+    // 使用次数限制判定（第二关每个按钮3次）
+    const limit = this.buttonUsageLimits[buttonId];
+    if (limit != null) {
+      const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
+      if (remaining <= 0) {
+        if (this.game && typeof this.game.showModalDialog === 'function') {
+          this.game.showModalDialog('提示', '使用机会已经没有了', [
+            { text: '知道了' }
+          ]);
+        }
+        return;
+      }
+      // 消耗一次机会并更新禁用状态
+      this.buttonUsageRemaining[buttonId] = remaining - 1;
+      if (this.buttonUsageRemaining[buttonId] <= 0) {
+        button.disabled = true;
+      }
+    }
+
+    if (button.action) {
       button.action();
     }
   }
@@ -861,15 +1006,20 @@ class Level2 {
   removeLastCard() {
     // 移出卡槽中的前四个卡片到下方区域
     const cardsToRemove = Math.min(4, this.cardSlot.cards.length);
-    console.log("外面"+`Removing ${cardsToRemove} cards`);
+    console.log("outside"+`Removing ${cardsToRemove} cards`);
     if (cardsToRemove > 0) {
       // 将前四个卡片移到移出区域
-      console.log("里面"+`Removing ${cardsToRemove} cards`);
+      console.log("inside"+`Removing ${cardsToRemove} cards`);
       const removedCards = this.cardSlot.cards.splice(0, cardsToRemove);
       this.removedCards.cards = this.removedCards.cards.concat(removedCards);
       
       // 更新移出卡片区域的位置和大小
       this.updateRemovedCardsLayout();
+      
+      // 限制：移出区最多10张，超过立即判定失败
+      if (this.removedCards.maxCards != null && this.removedCards.cards.length > this.removedCards.maxCards) {
+        this.showGameFailure();
+      }
     }
   }
   
@@ -1023,7 +1173,12 @@ class Level2 {
         {
           text: '再试一次',
           callback: () => {
-            this.resetLevel();
+            if (this.game && typeof this.game.initLevel1 === 'function') {
+              this.game.initLevel1();
+              this.game.gameState = this.game.GameState.LEVEL1;
+            } else {
+              this.resetLevel();
+            }
           }
         },
         {
@@ -1186,6 +1341,11 @@ class Level2 {
     // 绘制网格（改进的渲染逻辑）
     this.renderBlocks();
     
+    // 绘制7×9矩阵半透明覆盖层（仅调试）
+    if (this.showMatrixOverlay) {
+      this.renderMatrixOverlay();
+    }
+    
     // 调试覆盖层已关闭（不再绘制命中框）
     
     // 绘制底部功能按钮
@@ -1211,42 +1371,50 @@ class Level2 {
     });
   }
   
-  // 调试可视化：渲染九宫格点击命中区域覆盖层
-  renderGridHitboxes() {
-    this.ctx.save();
-    this.ctx.lineWidth = 2;
+  // 调试可视化：7×9矩阵覆盖层
+  renderMatrixOverlay() {
+    // 需要 calculateGrid 先计算以下参数
+    const stepX = this.stepX || (this.cellSize + this.gridSpacing);
+    const stepY = this.stepY || (this.cellSize + this.gridSpacing);
+    const minGX = (this.minGridX != null) ? this.minGridX : 0;
+    const minGY = (this.minGridY != null) ? this.minGridY : 0;
+    const cols = this.matrixCols || ((this.maxGridX != null && this.minGridX != null) ? (this.maxGridX - this.minGridX + 1) : 9);
+    const rows = this.matrixRows || ((this.maxGridY != null && this.minGridY != null) ? (this.maxGridY - this.minGridY + 1) : 7);
+    if (this.gridStartX == null || this.gridStartY == null) return;
     
-    for (let row = 0; row < this.gridSize; row++) {
-      for (let col = 0; col < this.gridSize; col++) {
-        const cell = this.gridCells[row][col];
-        const visibleBlocksInCell = this.chessBoard[row][col].blocks.filter(b => b.status === 0);
-        if (visibleBlocksInCell.length === 0) {
-          // 该格子没有可见卡片，则没有实际点击目标，不绘制
-          continue;
-        }
+    this.ctx.save();
+    this.ctx.lineWidth = 1;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = this.gridStartX + c * stepX;
+        const y = this.gridStartY + r * stepY;
+        const w = this.cellSize;
+        const h = this.cellSize;
+        const gridX = minGX + c;
+        const gridY = minGY + r;
         
-        // 若该格子有可点击的顶层卡片，则标绿；否则标红
-        const topClickable = this.getTopClickableBlock(row, col);
-        if (topClickable) {
-          this.ctx.fillStyle = 'rgba(50, 205, 50, 0.25)';      // 绿色半透明
-          this.ctx.strokeStyle = 'rgba(50, 205, 50, 0.9)';     // 绿色描边
+        // 判断该格子是否有可见卡片
+        const hasVisibleBlock = this.allBlocks.some(b => b.status === 0 && b.x === gridX && b.y === gridY);
+        
+        if (hasVisibleBlock) {
+          this.ctx.fillStyle = 'rgba(50, 205, 50, 0.22)'; // 绿色半透明（有卡片）
         } else {
-          this.ctx.fillStyle = 'rgba(220, 20, 60, 0.22)';      // 红色半透明
-          this.ctx.strokeStyle = 'rgba(220, 20, 60, 0.9)';     // 红色描边
+          this.ctx.fillStyle = 'rgba(70, 130, 180, 0.10)'; // 浅蓝半透明（无卡片）
         }
+        this.ctx.fillRect(x, y, w, h);
         
-        // 覆盖层与卡片渲染位置完全一致，无额外偏移
-        const vx = cell.x + (this.gridHitOffsetX || 0);
-        const vy = cell.y + (this.gridHitOffsetY || 0);
-        // 覆盖层与卡片渲染位置完全一致（不使用命中偏移）
-        const vxCard = cell.x;
-        const vyCard = cell.y;
-        const vh = cell.height;
-        this.ctx.fillRect(vxCard, vyCard, cell.width, vh);
-        this.ctx.strokeRect(vxCard, vyCard, cell.width, vh);
+        // 描边网格
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+        this.ctx.strokeRect(x, y, w, h);
+        
+        // 在左上角标注(c,r)
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+        this.ctx.font = '10px Arial';
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'top';
+        this.ctx.fillText(`${c},${r}`, x + 2, y + 2);
       }
     }
-    
     this.ctx.restore();
   }
   
@@ -1319,14 +1487,16 @@ class Level2 {
   // 渲染按钮
   renderButtons() {
     for (let button of this.buttons) {
+      const isDisabled = !!button.disabled;
       // 绘制按钮阴影
       this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
       this.ctx.fillRect(button.x + 3, button.y + 3, button.width, button.height);
       
       // 绘制按钮背景（渐变效果）
+      const baseColor = isDisabled ? '#9e9e9e' : button.color;
       const gradient = this.ctx.createLinearGradient(button.x, button.y, button.x, button.y + button.height);
-      gradient.addColorStop(0, button.color);
-      gradient.addColorStop(1, this.darkenColor(button.color, 0.2));
+      gradient.addColorStop(0, baseColor);
+      gradient.addColorStop(1, this.darkenColor(baseColor, 0.2));
       this.ctx.fillStyle = gradient;
       this.ctx.fillRect(button.x, button.y, button.width, button.height);
       
@@ -1344,6 +1514,20 @@ class Level2 {
         button.x + button.width / 2,
         button.y + button.height / 2 + 5
       );
+
+      // 绘制右上角可点击次数 (剩余/总数)
+      const lim = this.buttonUsageLimits && this.buttonUsageLimits[button.id];
+      if (lim != null) {
+        const rem = (this.buttonUsageRemaining && this.buttonUsageRemaining[button.id] != null)
+          ? this.buttonUsageRemaining[button.id]
+          : lim;
+        this.ctx.font = '12px Arial';
+        this.ctx.textAlign = 'right';
+        this.ctx.fillStyle = '#ffffff';
+        const tx = button.x + button.width - 6;
+        const ty = button.y + 14;
+        this.ctx.fillText(`(${rem}/${lim})`, tx, ty);
+      }
     }
   }
   

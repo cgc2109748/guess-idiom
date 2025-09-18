@@ -38,6 +38,10 @@ class Level1 {
     
     // 难度系数配置 (1-10，1最简单，10最难)
     this.difficultyLevel = 1;
+    
+    // 按钮使用次数限制（第一关每个按钮各1次）
+    this.buttonUsageLimits = { remove: 1, undo: 1, shuffle: 1 };
+    this.buttonUsageRemaining = { remove: 1, undo: 1, shuffle: 1 };
   }
   
   async init() {
@@ -273,6 +277,7 @@ class Level1 {
     
     // 移出卡片区域配置
     this.removedCards = {
+      maxCards: 10,
       cards: [],
       x: 0,
       y: 0,
@@ -386,11 +391,11 @@ class Level1 {
   }
   
   initButtons() {
-    // 计算按钮布局 - 四个按钮居中排列
+    // 计算按钮布局 - 三个按钮居中排列
     const buttonWidth = 80;
     const buttonHeight = 50;
-    const buttonSpacing = 15;
-    const totalWidth = 4 * buttonWidth + 3 * buttonSpacing;
+    const buttonSpacing = 20;
+    const totalWidth = 3 * buttonWidth + 2 * buttonSpacing;
     const startX = (this.width - totalWidth) / 2;
     const buttonY = this.height - 120; // 向下调整到距离底部120像素
     
@@ -404,6 +409,7 @@ class Level1 {
         color: '#ff6b6b',
         icon: '🗑️',
         text: '移出',
+        disabled: false,
         action: () => this.removeLastCard()
       },
       {
@@ -415,6 +421,7 @@ class Level1 {
         color: '#4caf50',
         icon: '↶',
         text: '撤回',
+        disabled: false,
         action: () => this.undoLastAction()
       },
       {
@@ -426,18 +433,8 @@ class Level1 {
         color: '#9c27b0',
         icon: '🔀',
         text: '洗牌',
+        disabled: false,
         action: () => this.shuffleBlocks()
-      },
-      {
-        id: 'nextLevel',
-        x: startX + 3 * (buttonWidth + buttonSpacing),
-        y: buttonY,
-        width: buttonWidth,
-        height: buttonHeight,
-        color: '#2196f3',
-        icon: '➡️',
-        text: '下一关',
-        action: () => this.goToNextLevel()
       }
     ];
   }
@@ -577,6 +574,11 @@ class Level1 {
       
       // 更新移出卡片区域的位置和大小
       this.updateRemovedCardsLayout();
+
+      // 限制：移出区最多10张，超过立即判定失败
+      if (this.removedCards.maxCards != null && this.removedCards.cards.length > this.removedCards.maxCards) {
+        this.showGameFailure();
+      }
     }
   }
   
@@ -741,7 +743,29 @@ class Level1 {
   
   handleButtonClick(buttonId) {
     const button = this.buttons.find(b => b.id === buttonId);
-    if (button && button.action) {
+    if (!button) return;
+
+    // 使用次数限制判定（第一关每个按钮1次）
+    const limit = this.buttonUsageLimits[buttonId];
+    if (limit != null) {
+      const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
+      if (remaining <= 0) {
+        // 已用尽，提示
+        if (this.game && typeof this.game.showModalDialog === 'function') {
+          this.game.showModalDialog('提示', '使用机会已经没有了', [
+            { text: '知道了' }
+          ]);
+        }
+        return;
+      }
+      // 消耗一次机会
+      this.buttonUsageRemaining[buttonId] = remaining - 1;
+      if (this.buttonUsageRemaining[buttonId] <= 0) {
+        button.disabled = true;
+      }
+    }
+
+    if (button.action) {
       button.action();
     }
   }
@@ -778,6 +802,11 @@ class Level1 {
       
       // 更新移出卡片区域的位置和大小
       this.updateRemovedCardsLayout();
+
+      // 限制：移出区最多10张，超过立即判定失败
+      if (this.removedCards.maxCards != null && this.removedCards.cards.length > this.removedCards.maxCards) {
+        this.showGameFailure();
+      }
     }
   }
   
@@ -936,7 +965,12 @@ class Level1 {
         {
           text: '再试一次',
           callback: () => {
-            this.resetLevel();
+            if (this.game && typeof this.game.initLevel1 === 'function') {
+              this.game.initLevel1();
+              this.game.gameState = this.game.GameState.LEVEL1;
+            } else {
+              this.resetLevel();
+            }
           }
         },
         {
@@ -1221,14 +1255,17 @@ class Level1 {
   // 渲染按钮
   renderButtons() {
     for (let button of this.buttons) {
+      const isDisabled = !!button.disabled;
+
       // 绘制按钮阴影
       this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
       this.ctx.fillRect(button.x + 3, button.y + 3, button.width, button.height);
       
       // 绘制按钮背景（渐变效果）
+      const baseColor = isDisabled ? '#9e9e9e' : button.color;
       const gradient = this.ctx.createLinearGradient(button.x, button.y, button.x, button.y + button.height);
-      gradient.addColorStop(0, button.color);
-      gradient.addColorStop(1, this.darkenColor(button.color, 0.2));
+      gradient.addColorStop(0, baseColor);
+      gradient.addColorStop(1, this.darkenColor(baseColor, 0.2));
       this.ctx.fillStyle = gradient;
       this.ctx.fillRect(button.x, button.y, button.width, button.height);
       
@@ -1246,6 +1283,20 @@ class Level1 {
         button.x + button.width / 2,
         button.y + button.height / 2 + 5
       );
+
+      // 绘制右上角可点击次数 (剩余/总数)
+      const lim = this.buttonUsageLimits && this.buttonUsageLimits[button.id];
+      if (lim != null) {
+        const rem = (this.buttonUsageRemaining && this.buttonUsageRemaining[button.id] != null)
+          ? this.buttonUsageRemaining[button.id]
+          : lim;
+        this.ctx.font = '12px Arial';
+        this.ctx.textAlign = 'right';
+        this.ctx.fillStyle = '#ffffff';
+        const tx = button.x + button.width - 6;
+        const ty = button.y + 14;
+        this.ctx.fillText(`(${rem}/${lim})`, tx, ty);
+      }
     }
   }
   
