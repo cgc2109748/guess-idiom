@@ -1110,18 +1110,19 @@ class Level1 {
     context.fillStyle = '#333333';
     context.font = 'bold 24px Arial';
     context.textAlign = 'center';
-    context.fillText('猜成语游戏', this.width / 2, 40);
+    context.fillText('拼来凑去', this.width / 2, 40);
     
-    // 绘制日期
+    // 绘制关卡（替代原日期位置）
     context.fillStyle = '#666666';
     context.font = '16px Arial';
-    context.fillText(this.gameDate, this.width / 2, 70);
+    context.fillText('第1关', this.width / 2, 70);
     
-    // 绘制难度等级
-    context.fillStyle = '#ff8c42';
-    context.font = 'bold 14px Arial';
-    context.textAlign = 'right';
-    context.fillText(`难度: ${this.difficultyLevel}/10`, this.width - 20, 30);
+    // 绘制剩余卡片数量（在关卡下方）
+    const remainingBlocks = this.allBlocks.filter(block => block.status === 0).length;
+    context.fillStyle = '#4caf50';
+    context.font = 'bold 16px Arial';
+    context.textAlign = 'center';
+    context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 95);
     
     // 绘制网格（改进的渲染逻辑）
     this.renderBlocks();
