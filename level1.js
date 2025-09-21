@@ -1,4 +1,6 @@
 // 第一关：猜成语游戏逻辑
+const idioms = require('./data.js');
+
 class Level1 {
   constructor(game) {
     this.game = game;
@@ -79,13 +81,12 @@ class Level1 {
       this.idiomsData = data.idioms;
       console.log(this.idiomsData)
       
-      // 随机选择9个成语
+      // 随机选择10个成语
       this.selectedIdioms = [];
-      const shuffledIdioms = [...this.idiomsData];
-      this.shuffleArray(shuffledIdioms);
+      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 10);
       
-      for (let i = 0; i < Math.min(9, shuffledIdioms.length); i++) {
-        this.selectedIdioms.push(shuffledIdioms[i]);
+      for (const index of randomIndices) {
+        this.selectedIdioms.push(this.idiomsData[index]);
       }
       
 
@@ -99,18 +100,16 @@ class Level1 {
       
     } catch (error) {
       console.error('加载成语数据失败:', error);
-      // 使用默认数据
-      this.selectedIdioms = [
-        { idiom: "一心一意", pinyin: "yi xin yi yi" },
-        { idiom: "三心二意", pinyin: "san xin er yi" },
-        { idiom: "四面八方", pinyin: "si mian ba fang" },
-        { idiom: "五光十色", pinyin: "wu guang shi se" },
-        { idiom: "六神无主", pinyin: "liu shen wu zhu" },
-        { idiom: "七上八下", pinyin: "qi shang ba xia" },
-        { idiom: "八仙过海", pinyin: "ba xian guo hai" },
-        { idiom: "守株待兔", pinyin: "shou zhu dai tu" },
-        { idiom: "愚公移山", pinyin: "yu gong yi shan" }
-      ];
+      // 使用默认数据：从 data.js 中随机选择10个成语
+      this.selectedIdioms = [];
+      const randomIndices = this.generateRandomIndices(idioms.length, 10);
+      
+      for (const index of randomIndices) {
+        this.selectedIdioms.push(idioms[index]);
+      }
+      
+      console.log('this.selectedIdioms:', this.selectedIdioms)
+
       this.idiomCharacters = [];
       this.selectedIdioms.forEach(idiom => {
         this.idiomCharacters.push(...idiom.idiom.split(''));
@@ -119,6 +118,16 @@ class Level1 {
     }
   }
   
+  // 生成指定数量的不重复随机索引
+  generateRandomIndices(maxIndex, count) {
+    const indices = new Set();
+    while (indices.size < count && indices.size < maxIndex) {
+      const randomIndex = Math.floor(Math.random() * maxIndex);
+      indices.add(randomIndex);
+    }
+    return Array.from(indices);
+  }
+
   shuffleArray(array) {
     // 难度1：完全不打乱，按顺序排列
     if (this.difficultyLevel === 1) {
