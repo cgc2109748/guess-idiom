@@ -1,6 +1,7 @@
 // 引入Level1/Level2类
 const Level1 = require('./level1.js');
 const Level2 = require('./level2.js');
+const Menu = require('./menu.js');
 
 // 游戏状态枚举
 const GameState = {
@@ -17,22 +18,52 @@ class GuessIdiomGame {
     // 检查是否在微信环境
     if (typeof wx !== 'undefined' && wx.createCanvas) {
         this.canvas = wx.createCanvas();
-        this.canvas.width = 375;
-        this.canvas.height = 667;
+        // 微信小程序使用系统信息获取屏幕尺寸
+        const systemInfo = wx.getSystemInfoSync();
+        this.canvas.width = systemInfo.windowWidth;
+        this.canvas.height = systemInfo.windowHeight;
+        this.ctx = this.canvas.getContext('2d');
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
       } else {
       // 浏览器环境
       this.canvas = document.getElementById('gameCanvas') || document.createElement('canvas');
       if (!document.getElementById('gameCanvas')) {
         this.canvas.id = 'gameCanvas';
-        this.canvas.width = 375;
-        this.canvas.height = 667;
         document.body.appendChild(this.canvas);
       }
+      
+      // 设置画布样式，让它填满屏幕
+      this.canvas.style.position = 'fixed';
+      this.canvas.style.top = '0';
+      this.canvas.style.left = '0';
+      this.canvas.style.width = '100vw';
+      this.canvas.style.height = '100vh';
+      this.canvas.style.display = 'block';
+      
+      // 获取设备像素比
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      
+      // 获取屏幕尺寸
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      // 设置画布的实际尺寸（考虑像素比）
+      this.canvas.width = screenWidth * devicePixelRatio;
+      this.canvas.height = screenHeight * devicePixelRatio;
+      
+      // 缩放画布以匹配CSS尺寸
+      this.canvas.style.width = screenWidth + 'px';
+      this.canvas.style.height = screenHeight + 'px';
+      
+      // 缩放绘图上下文以匹配设备像素比
+      this.ctx = this.canvas.getContext('2d');
+      this.ctx.scale(devicePixelRatio, devicePixelRatio);
+      
+      // 设置逻辑尺寸（用于游戏逻辑计算）
+      this.width = screenWidth;
+      this.height = screenHeight;
     }
-    
-    this.ctx = this.canvas.getContext('2d');
-    this.width = this.canvas.width;
-    this.height = this.canvas.height;
     
     this.gameState = GameState.LOADING;
     this.showModal = false;
@@ -49,6 +80,9 @@ class GuessIdiomGame {
     // 当前关卡实例
     this.currentLevel = null;
     
+    // 菜单实例
+    this.menu = null;
+    
     // 暴露枚举到实例，给各关使用（只读约定）
     this.GameState = GameState;
     this.init();
@@ -58,17 +92,36 @@ class GuessIdiomGame {
     // 设置触摸事件
     this.setupTouchEvents();
     
-    // 初始化第一关
-    await this.initLevel1();
+    // 初始化菜单
+    await this.initMenu();
     
     // 开始游戏循环
     this.startGameLoop();
+  }
+  
+  async initMenu() {
+    // 创建菜单实例
+    this.menu = new Menu(this);
+    await this.menu.init();
+    this.gameState = GameState.MENU;
   }
   
   async initLevel1() {
     // 创建第一关实例
     this.currentLevel = new Level1(this);
     await this.currentLevel.init();
+    
+    // 确保第一关使用当前的画布尺寸
+    this.currentLevel.width = this.width;
+    this.currentLevel.height = this.height;
+    
+    // 重新计算第一关的所有位置
+    if (this.currentLevel.calculateGrid) {
+      this.currentLevel.calculateGrid();
+    }
+    if (this.currentLevel.initButtons) {
+      this.currentLevel.initButtons();
+    }
   }
   
   async initLevel2() {
@@ -84,7 +137,6 @@ class GuessIdiomGame {
   }
   
   startGameLoop() {
-    this.gameState = GameState.LEVEL1;
     this.gameLoop();
   }
   
@@ -102,23 +154,69 @@ class GuessIdiomGame {
       // 浏览器环境
       this.canvas.addEventListener('click', (e) => {
         const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
+        // 直接使用逻辑坐标，不需要缩放
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
         this.handleTouch(x, y);
       });
       
       this.canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
         const touch = e.touches[0];
-        const x = (touch.clientX - rect.left) * scaleX;
-        const y = (touch.clientY - rect.top) * scaleY;
+        // 直接使用逻辑坐标，不需要缩放
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
         this.handleTouch(x, y);
       });
+      
+      // 监听窗口大小变化
+      window.addEventListener('resize', () => {
+        this.resizeCanvas();
+      });
+    }
+  }
+  
+  resizeCanvas() {
+    // 只在浏览器环境中处理
+    if (typeof wx === 'undefined') {
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      // 重新设置画布尺寸
+      this.canvas.width = screenWidth * devicePixelRatio;
+      this.canvas.height = screenHeight * devicePixelRatio;
+      
+      // 重新设置CSS尺寸
+      this.canvas.style.width = screenWidth + 'px';
+      this.canvas.style.height = screenHeight + 'px';
+      
+      // 重新缩放绘图上下文
+      this.ctx = this.canvas.getContext('2d');
+      this.ctx.scale(devicePixelRatio, devicePixelRatio);
+      
+      // 更新逻辑尺寸
+      this.width = screenWidth;
+      this.height = screenHeight;
+      
+      // 如果菜单存在，重新计算按钮位置
+      if (this.menu) {
+        this.menu.width = this.width;
+        this.menu.height = this.height;
+        this.menu.startButton.x = this.width / 2 - 100;
+        this.menu.startButton.y = this.height / 2 + 120;
+      }
+      
+      // 如果当前是第一关，重新计算位置
+      if (this.currentLevel && this.currentLevel.calculateGrid) {
+        this.currentLevel.width = this.width;
+        this.currentLevel.height = this.height;
+        this.currentLevel.calculateGrid();
+        if (this.currentLevel.initButtons) {
+          this.currentLevel.initButtons();
+        }
+      }
     }
   }
   
@@ -126,6 +224,12 @@ class GuessIdiomGame {
     // 如果显示通用弹窗，处理按钮点击
     if (this.modalConfig && this.modalConfig.show) {
       this.handleModalClick(x, y);
+      return;
+    }
+    
+    // 如果在菜单状态，处理菜单触摸
+    if (this.gameState === GameState.MENU && this.menu) {
+      this.menu.handleTouch(x, y);
       return;
     }
     
@@ -197,6 +301,11 @@ class GuessIdiomGame {
   }
   
   update() {
+    // 如果在菜单状态，更新菜单
+    if (this.gameState === GameState.MENU && this.menu) {
+      this.menu.update();
+    }
+    
     // 委托给当前关卡更新
     if (this.currentLevel && this.currentLevel.update) {
       this.currentLevel.update();
@@ -204,13 +313,18 @@ class GuessIdiomGame {
   }
   
   render() {
-    // 清空画布
-    this.ctx.fillStyle = '#87ceeb';
-    this.ctx.fillRect(0, 0, this.width, this.height);
-    
-    // 委托给当前关卡渲染
-    if (this.currentLevel && this.currentLevel.render) {
-      this.currentLevel.render(this.ctx);
+    // 如果在菜单状态，渲染菜单
+    if (this.gameState === GameState.MENU && this.menu) {
+      this.menu.render(this.ctx);
+    } else {
+      // 清空画布
+      this.ctx.fillStyle = '#87ceeb';
+      this.ctx.fillRect(0, 0, this.width, this.height);
+      
+      // 委托给当前关卡渲染
+      if (this.currentLevel && this.currentLevel.render) {
+        this.currentLevel.render(this.ctx);
+      }
     }
     
     // 渲染通用弹窗

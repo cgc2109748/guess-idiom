@@ -238,12 +238,12 @@ class Level1 {
     this.stackHeight = 4; // 每个位置堆叠4个格子
     this.layerOffset = 8; // 每层的偏移量，创造立体效果
 
-    // 仅用于“九宫格”的点击校准偏移（不影响按钮与移出卡槽）
+    // 仅用于"九宫格"的点击校准偏移（不影响按钮与移出卡槽）
     // 正值表示：命中检测使用 y' = y + gridHitOffsetY
     // 全局默认不偏移（保持按钮与移出卡槽完全不变）
     this.gridHitOffsetX = 0;
-    // 将九宫格点击命中区域整体下移，以修正“偏上 3/4 卡片高度 + 1 个空隙”的问题
-    this.gridHitOffsetY = (3 * this.cellSize) / 4 + this.gridSpacing;
+    // 减少偏移量，矫正点击位置判断偏上的问题
+    this.gridHitOffsetY = 0; // 先尝试完全移除偏移
     // 间隙不可点击：不再拉长点击区域高度
     this.extraHitHeightY = 0;
     
@@ -383,7 +383,8 @@ class Level1 {
     
     // 计算网格的起始位置（居中）
     const startX = (this.width - totalGridWidth) / 2;
-    const startY = 120; // 从标题下方开始
+    // 根据屏幕高度动态调整网格位置，确保在不同屏幕尺寸下都能正常显示
+    const startY = Math.max(120, this.height * 0.15); // 至少120px，或屏幕高度的15%
     
     // 初始化网格单元格位置
     this.gridCells = [];
@@ -412,7 +413,8 @@ class Level1 {
     const buttonSpacing = 20;
     const totalWidth = 3 * buttonWidth + 2 * buttonSpacing;
     const startX = (this.width - totalWidth) / 2;
-    const buttonY = this.height - 120; // 向下调整到距离底部120像素
+    // 根据屏幕高度动态调整按钮位置，确保在不同屏幕尺寸下都能正常显示
+    const buttonY = this.height - Math.max(120, this.height * 0.15); // 距离底部至少120px，或屏幕高度的15%
     
     this.buttons = [
       {
@@ -476,11 +478,9 @@ class Level1 {
     
     // 检查按钮点击
     for (let button of this.buttons) {
-      // 针对三个按钮（移出/撤回/洗牌）统一下移点击命中区域到可视位置：3 × 按钮高度
-      const needsOffset = (button.id === 'remove' || button.id === 'undo' || button.id === 'shuffle');
-      const yOffset = needsOffset ? (3 * button.height) : 0;
-      const hitTop = button.y + yOffset;
-      const hitBottom = button.y + button.height + yOffset;
+      // 移除按钮点击偏移，直接使用按钮的实际位置
+      const hitTop = button.y;
+      const hitBottom = button.y + button.height;
       if (x >= button.x && x <= button.x + button.width &&
           y >= hitTop && y <= hitBottom) {
         this.handleButtonClick(button.id);
@@ -601,6 +601,10 @@ class Level1 {
     let clickedBlock = null;
     let highestLevel = -1;
     
+    // 调试信息：输出点击位置和偏移量
+    console.log('点击位置:', x, y);
+    console.log('gridHitOffsetY:', this.gridHitOffsetY);
+    
     // 遍历所有网格位置
     for (let row = 0; row < this.gridSize; row++) {
       for (let col = 0; col < this.gridSize; col++) {
@@ -620,6 +624,12 @@ class Level1 {
           const blockWidth = cell.width;  // = this.cellSize = 60
           // 命中高度与卡片等高，间隙不可点击
           const blockHeight = cell.height + (this.extraHitHeightY || 0);
+          
+          // 调试信息：输出检测区域
+          if (row === 0 && col === 0 && i === blocksInCell.length - 1) {
+            console.log('第一个块的检测区域:', blockX, blockY, blockWidth, blockHeight);
+            console.log('cell位置:', cell.x, cell.y, cell.width, cell.height);
+          }
           
           // 检查点击是否在块范围内（仅卡片区域）
           if (x >= blockX && x <= blockX + blockWidth &&
