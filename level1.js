@@ -89,6 +89,9 @@ class Level1 {
         this.selectedIdioms.push(this.idiomsData[index]);
       }
       
+      // console.log('正常加载 - 选择的成语数量:', this.selectedIdioms.length);
+      // console.log('正常加载 - 选择的成语:', this.selectedIdioms.map(item => item.idiom));
+      
 
       
       // 将所有选中成语的字符收集并打乱
@@ -108,7 +111,10 @@ class Level1 {
         this.selectedIdioms.push(idioms[index]);
       }
       
-      console.log('this.selectedIdioms:', this.selectedIdioms)
+      // console.log('默认数据 - 选择的成语数量:', this.selectedIdioms.length);
+      // console.log('默认数据 - 选择的成语:', this.selectedIdioms.map(item => item.idiom));
+      
+      // console.log('this.selectedIdioms:', this.selectedIdioms)
 
       this.idiomCharacters = [];
       this.selectedIdioms.forEach(idiom => {
@@ -902,8 +908,14 @@ class Level1 {
       if (hasRemainingBlocks) break;
     }
     
+    // console.log('检查通关条件:');
+    // console.log('- 剩余成语数量:', this.selectedIdioms.length);
+    // console.log('- 九宫格剩余卡片:', hasRemainingBlocks);
+    // console.log('- 卡槽剩余卡片:', this.cardSlot.cards.length);
+    
     // 通关条件：所有成语完成 + 九宫格无剩余卡片 + 卡槽为空
-    if (this.selectedIdioms.length === 0 && !hasRemainingBlocks && this.cardSlot.cards.length === 0) {
+    if (this.selectedIdioms.length === 1 && !hasRemainingBlocks && this.cardSlot.cards.length === 0) {
+      // console.log('通关条件满足，显示通关弹窗');
       this.game.showModalDialog(
         '恭喜过关',
         '您已成功完成所有成语！',
@@ -1075,6 +1087,7 @@ class Level1 {
       if (isMatch) {
          // 移除已完成的成语
       this.selectedIdioms = this.selectedIdioms.filter(item => item !== idiom);
+      // console.log('成语完成:', idiom.idiom, '剩余成语数量:', this.selectedIdioms.length);
       
          // 只移除用于组成成语的卡片
          usedCardIndices.sort((a, b) => b - a); // 从后往前删除，避免索引变化
@@ -1082,7 +1095,8 @@ class Level1 {
           this.cardSlot.cards.splice(index, 1);
         }
         
-        if (this.selectedIdioms.length === 0) {
+        if (this.selectedIdioms.length === 1) {
+          // console.log('所有成语完成，检查通关条件');
            // 检查是否真正通关：所有成语完成 + 九宫格无剩余卡片 + 卡槽为空
           this.checkLevelComplete();
         }
