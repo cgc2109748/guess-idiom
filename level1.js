@@ -44,14 +44,39 @@ class Level1 {
     // 按钮使用次数限制（第一关每个按钮各1次）
     this.buttonUsageLimits = { remove: 1, undo: 1, shuffle: 1 };
     this.buttonUsageRemaining = { remove: 1, undo: 1, shuffle: 1 };
+
+    // 背景图
+    this.bgImage = null;
+    this.bgImageLoaded = false;
   }
   
   async init() {
+    // 加载背景图片
+    await this.loadBackgroundImage();
+
     // 加载成语数据
     await this.loadIdiomData();
     
     // 初始化第一关
     this.initLevel();
+  }
+  
+  async loadBackgroundImage() {
+    return new Promise((resolve) => {
+      if (typeof wx !== 'undefined') {
+        // 微信小程序环境
+        this.bgImage = wx.createImage();
+        this.bgImage.onload = () => { this.bgImageLoaded = true; resolve(); };
+        this.bgImage.onerror = () => { console.warn('背景图片加载失败'); this.bgImageLoaded = false; resolve(); };
+        this.bgImage.src = 'gameBG.png';
+      } else {
+        // 浏览器环境
+        this.bgImage = new Image();
+        this.bgImage.onload = () => { this.bgImageLoaded = true; resolve(); };
+        this.bgImage.onerror = () => { console.warn('背景图片加载失败'); this.bgImageLoaded = false; resolve(); };
+        this.bgImage.src = './gameBG.png';
+      }
+    });
   }
   
   async loadIdiomData() {
@@ -212,22 +237,7 @@ class Level1 {
   getDifficultyLevel() {
     return this.difficultyLevel;
   }
-  
-  // 增加难度
-  increaseDifficulty() {
-    if (this.difficultyLevel < 10) {
-      this.difficultyLevel++;
-      this.resetLevel(); // 重新生成关卡以应用新难度
-    }
-  }
-  
-  // 降低难度
-  decreaseDifficulty() {
-    if (this.difficultyLevel > 1) {
-      this.difficultyLevel--;
-      this.resetLevel(); // 重新生成关卡以应用新难度
-    }
-  }
+
   
   initLevel() {
     // 初始化猜成语游戏
@@ -495,15 +505,17 @@ class Level1 {
       return;
     }
     
-    // 检查卡槽中卡片点击
+    // 检查卡槽中卡片点击（禁用：不再通过点击将卡片移出卡槽）
+    /*
     const clickedSlotCard = this.getClickedSlotCard(x, y);
     if (clickedSlotCard !== -1) {
-      this.moveSlotCardToRemoved(clickedSlotCard);
+      // 禁止通过点击将卡槽中的卡片移出
       return;
     }
+    */
     
     // 检查网格点击（按钮与移出卡槽不受影响）
-    // 命中判定偏移在 getClickedBlock 内部施加到九宫格的矩形上
+    // 命中检测偏移在 getClickedBlock 内部施加到九宫格的矩形上
     const clickedBlock = this.getClickedBlock(x, y);
     if (clickedBlock) {
       this.doClickBlock(clickedBlock);
@@ -527,9 +539,8 @@ class Level1 {
                                      (this.removedCards.cards.length - 1));
     }
 
-    // 进一步微调：高度与渲染一致，则继续向下校正 1/3 × 卡片高度
-    // 最终总校正量 = 8/3 × 卡片高度
-    const clickYOffset = (8 * this.removedCards.cardHeight) / 3;
+    // 点击命中区域与渲染完全一致：与绘制时的 +5 对齐
+    const clickYOffset = 5;
     
     for (let i = 0; i < this.removedCards.cards.length; i++) {
       const cardX = this.removedCards.x + 10 + i * (this.removedCards.cardWidth + actualCardSpacing);
@@ -561,13 +572,12 @@ class Level1 {
       actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
     }
     
-    // 点击命中区域与渲染对齐：整体向下校正，避免与上方九宫格误判
-    // 采用与移出区域一致的校正量：8/3 × 卡片高度
-    const clickYOffset = (8 * this.cardSlot.cardHeight) / 3;
+    // 点击命中区域与渲染对齐：renderCardSlot 使用 y = this.cardSlot.y + 5
+    const clickYOffset = 5;
     
     for (let i = 0; i < this.cardSlot.cards.length; i++) {
       const cardX = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
-      const cardY = this.cardSlot.y + 5 + clickYOffset;
+      const cardY = this.cardSlot.y + clickYOffset; // 与渲染一致，不再重复 +5
       
       // 确保不超出卡槽边界
       if (cardX + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
@@ -601,10 +611,6 @@ class Level1 {
     let clickedBlock = null;
     let highestLevel = -1;
     
-    // 调试信息：输出点击位置和偏移量
-    console.log('点击位置:', x, y);
-    console.log('gridHitOffsetY:', this.gridHitOffsetY);
-    
     // 遍历所有网格位置
     for (let row = 0; row < this.gridSize; row++) {
       for (let col = 0; col < this.gridSize; col++) {
@@ -616,28 +622,24 @@ class Level1 {
           const block = blocksInCell[i];
           if (block.status !== 0) continue; // 跳过已移除的块
           
-          // 彻底修正：点击命中区域严格对齐渲染区域
-          // 渲染位置：layerX = cell.x, layerY = cell.y (参见renderSingleBlock)
-          // 因此命中区域应该完全一致，且高度必须等于cellSize
-          const blockX = cell.x + (this.gridHitOffsetX || 0);
-          const blockY = cell.y + (this.gridHitOffsetY || 0); // 仅用于点击命中校准
-          const blockWidth = cell.width;  // = this.cellSize = 60
-          // 命中高度与卡片等高，间隙不可点击
-          const blockHeight = cell.height + (this.extraHitHeightY || 0);
+          // 与渲染一致的层级错位与尺寸收缩
+          const offset = this.layerOffset || 6;
+          const isEvenLayer = (block.level % 2 === 0);
+          const dx = isEvenLayer ? Math.floor(offset / 2) : 0;
+          const dy = isEvenLayer ? Math.floor(offset / 2) : 0;
+          const layerX = cell.x + dx + (this.gridHitOffsetX || 0);
+          const layerY = cell.y + dy + (this.gridHitOffsetY || 0);
+          const layerW = cell.width - dx;
+          const layerH = cell.height - dy + (this.extraHitHeightY || 0);
           
-          // 调试信息：输出检测区域
-          if (row === 0 && col === 0 && i === blocksInCell.length - 1) {
-            console.log('第一个块的检测区域:', blockX, blockY, blockWidth, blockHeight);
-            console.log('cell位置:', cell.x, cell.y, cell.width, cell.height);
-          }
-          
-          // 检查点击是否在块范围内（仅卡片区域）
-          if (x >= blockX && x <= blockX + blockWidth &&
-              y >= blockY && y <= blockY + blockHeight) {
-            // 如果这是目前找到的最高层块，且可点击，则选择它
+          // 点击是否在该层块的可见区域内
+          if (x >= layerX && x <= layerX + layerW &&
+              y >= layerY && y <= layerY + layerH) {
             if (block.level > highestLevel && this.isBlockClickable(block)) {
               clickedBlock = block;
               highestLevel = block.level;
+              // 命中最高层后可直接跳出当前格（继续检查更高格不必要）
+              break;
             }
           }
         }
@@ -840,6 +842,8 @@ class Level1 {
     this.removedCards.x = this.cardSlot.x;
     this.removedCards.y = this.cardSlot.y + this.cardSlot.height + 40; // 向下留出40像素间距
     this.removedCards.width = this.cardSlot.width;
+    // 区域高度需要完整包裹卡片高度（上下各留 5px 内边距）
+    this.removedCards.height = this.removedCards.cardHeight + 10;
   }
   
   addRemovedCardToSlot(cardIndex) {
@@ -1139,6 +1143,32 @@ class Level1 {
     // 使用传入的ctx或者默认的this.ctx
     const context = ctx || this.ctx;
     
+    // 绘制背景图片
+    if (this.bgImageLoaded && this.bgImage) {
+      const imageAspect = this.bgImage.width / this.bgImage.height;
+      const canvasAspect = this.width / this.height;
+      let drawWidth, drawHeight, drawX, drawY;
+      if (imageAspect > canvasAspect) {
+        drawHeight = this.height * 1.07;
+        drawWidth = drawHeight * imageAspect;
+        drawX = (this.width - drawWidth) / 2;
+        drawY = (this.height - drawHeight) / 2;
+      } else {
+        drawWidth = this.width * 1.05;
+        drawHeight = drawWidth / imageAspect;
+        drawX = (this.width - drawWidth) / 2;
+        drawY = (this.height - drawHeight) / 2;
+      }
+      context.drawImage(this.bgImage, drawX, drawY, drawWidth, drawHeight);
+    } else {
+      const gradient = context.createLinearGradient(0, 0, 0, this.height);
+      gradient.addColorStop(0, '#87CEEB');
+      gradient.addColorStop(1, '#98FB98');
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, this.width, this.height);
+    }
+    // 背景白色蒙版已移除
+
     // 绘制标题
     context.fillStyle = '#333333';
     context.font = 'bold 24px Arial';
@@ -1230,9 +1260,15 @@ class Level1 {
     
     if (!character) return;
     
-    // 不使用层级偏移，直接堆叠
-    const layerX = cell.x;
-    const layerY = cell.y;
+    // 层级插空：偶数层错位显示，让下层字符可见，同时收缩尺寸以避免越界
+    const offset = this.layerOffset || 6;
+    const isEvenLayer = (block.level % 2 === 0);
+    const dx = isEvenLayer ? Math.floor(offset / 2) : 0;
+    const dy = isEvenLayer ? Math.floor(offset / 2) : 0;
+    const layerX = cell.x + dx;
+    const layerY = cell.y + dy;
+    const layerW = cell.width - dx;
+    const layerH = cell.height - dy;
     
     // 判断是否可点击
     const isClickable = this.isBlockClickable(block);
@@ -1248,16 +1284,16 @@ class Level1 {
     
     // 绘制块背景
     this.ctx.fillStyle = isClickable ? '#f5f5dc' : '#d3d3d3';
-    this.ctx.fillRect(layerX, layerY, cell.width, cell.height);
+    this.ctx.fillRect(layerX, layerY, layerW, layerH);
     
     // 绘制块边框
     this.ctx.strokeStyle = isClickable ? '#8b4513' : '#999999';
     this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(layerX, layerY, cell.width, cell.height);
+    this.ctx.strokeRect(layerX, layerY, layerW, layerH);
     
     // 绘制字符背景色
     this.ctx.fillStyle = isClickable ? character.color : '#cccccc';
-    this.ctx.fillRect(layerX + 3, layerY + 3, cell.width - 6, cell.height - 6);
+    this.ctx.fillRect(layerX + 3, layerY + 3, layerW - 6, layerH - 6);
     
     // 绘制字符图标（固定字号）
     this.ctx.fillStyle = isClickable ? '#000000' : '#666666';
@@ -1265,24 +1301,43 @@ class Level1 {
     this.ctx.textAlign = 'center';
     this.ctx.fillText(
       character.icon,
-      layerX + cell.width / 2,
-      layerY + cell.height / 2 + 10
+      layerX + layerW / 2,
+      layerY + layerH / 2 + 10
     );
     
     // 恢复绘图状态
     this.ctx.restore();
     
+    // 在右上角显示下一张卡片的文字（白色 10px，不与主文字重叠，仅顶层可见卡片显示）
+    if (isTopMostVisible) {
+      const currentIdx = visibleBlocks.findIndex(b => b.id === block.id);
+      const nextIdx = currentIdx - 1;
+      if (nextIdx >= 0) {
+        const nextBlock = visibleBlocks[nextIdx];
+        const nextCharacter = this.characterTypes[nextBlock.type];
+        if (nextCharacter) {
+          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          this.ctx.font = 'bold 10px Arial';
+          this.ctx.textAlign = 'right';
+          this.ctx.textBaseline = 'top';
+          const pad = 4;
+          this.ctx.fillText(nextCharacter.icon, layerX + layerW - pad, layerY + pad);
+          this.ctx.textBaseline = 'alphabetic';
+        }
+      }
+    }
+    
     // 高亮选中的字符类型（不受透明度影响）
     if (isClickable && block.type === this.selectedCharacterType) {
       this.ctx.strokeStyle = '#ff6b6b';
       this.ctx.lineWidth = 4;
-      this.ctx.strokeRect(layerX - 2, layerY - 2, cell.width + 4, cell.height + 4);
+      this.ctx.strokeRect(layerX - 2, layerY - 2, layerW + 4, layerH + 4);
     }
     
     // 为不可点击的块添加遮罩效果（不受透明度影响）
     if (!isClickable) {
       this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      this.ctx.fillRect(layerX, layerY, cell.width, cell.height);
+      this.ctx.fillRect(layerX, layerY, layerW, layerH);
     }
   }
   
@@ -1414,6 +1469,8 @@ class Level1 {
             x + this.cardSlot.cardWidth / 2,
             y + this.cardSlot.cardHeight / 2 + 5
           );
+          
+          // 右上角“下一张”提示已移除：卡槽内的卡片不显示提示
         }
       }
     }
@@ -1455,51 +1512,46 @@ class Level1 {
       actualCardSpacing = Math.max(1, (availableWidth - this.removedCards.cards.length * this.removedCards.cardWidth) / 
                                      (this.removedCards.cards.length - 1));
     }
-    
-    // 进一步微调：高度与渲染一致，则继续向下校正 1/3 × 卡片高度
-    // 最终总校正量 = 8/3 × 卡片高度
-    const clickYOffset = (8 * this.removedCards.cardHeight) / 3;
-    
+
+    // 实际绘制 Y 与点击命中保持一致：+5
+    const drawYOffset = 5;
+
+    // 绘制移出的卡片
     for (let i = 0; i < this.removedCards.cards.length; i++) {
       const card = this.removedCards.cards[i];
       const character = this.characterTypes[card.characterType];
-      
-      if (character) {
-        const x = this.removedCards.x + 10 + i * (this.removedCards.cardWidth + actualCardSpacing);
-        const y = this.removedCards.y;
-        
-        // 绘制卡片背景
-        this.ctx.fillStyle = character.color;
+      const x = this.removedCards.x + 10 + i * (this.removedCards.cardWidth + actualCardSpacing);
+      const y = this.removedCards.y + drawYOffset;
+
+      // 确保卡片不超出区域边界
+      if (x + this.removedCards.cardWidth <= this.removedCards.x + this.removedCards.width - 10) {
+        // 卡片背景
+        this.ctx.fillStyle = character && character.color ? character.color : '#dddddd';
         this.ctx.fillRect(x + 1, y + 1, this.removedCards.cardWidth - 2, this.removedCards.cardHeight - 2);
-        
-        // 绘制卡片边框（高亮显示可点击）
-        this.ctx.strokeStyle = '#4caf50';
-        this.ctx.lineWidth = 2;
+
+        // 卡片边框
+        this.ctx.strokeStyle = '#999999';
+        this.ctx.lineWidth = 1;
         this.ctx.strokeRect(x, y, this.removedCards.cardWidth, this.removedCards.cardHeight);
+
+        // 图标/文字
+        if (character) {
+          this.ctx.fillStyle = '#000000';
+          this.ctx.font = 'bold 16px Arial';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(
+            character.icon,
+            x + this.removedCards.cardWidth / 2,
+            y + this.removedCards.cardHeight / 2 + 5
+          );
         
-        // 绘制卡片图标
-        this.ctx.fillStyle = '#000000';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(
-          character.icon,
-          x + this.removedCards.cardWidth / 2,
-          y + this.removedCards.cardHeight / 2 + 5
-        );
+          // 右上角“下一张”提示已移除：移出区域的卡片不显示提示
+        }
       }
     }
-    
-    // 绘制移出卡片区域标题
-    this.ctx.fillStyle = '#666666';
-    this.ctx.font = '12px Arial';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText(
-      "",
-      this.removedCards.x + 5,
-      this.removedCards.y - 5
-    );
   }
-  
+    
+
   renderMovingCard() {
     if (!this.movingCard || !this.movingCard.card) return;
     

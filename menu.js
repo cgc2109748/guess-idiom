@@ -147,10 +147,8 @@ class Menu {
       ctx.fillRect(0, 0, this.width, this.height);
     }
     
-    // 绘制半透明遮罩，让文字更清晰
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.fillRect(0, 0, this.width, this.height);
-    
+    // 背景白色蒙版已移除
+
     // 绘制游戏标题
     // ctx.fillStyle = this.title.color;
     // ctx.font = `bold ${this.title.fontSize}px Arial, "Microsoft YaHei", sans-serif`;

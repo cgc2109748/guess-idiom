@@ -1,42 +1,18 @@
-// 第一关：猜成语游戏逻辑
-const idioms = require('./data.js');
-
 class Level2 {
   constructor(game) {
     this.game = game;
     this.ctx = game.ctx;
     this.width = game.width;
     this.height = game.height;
-    
-    // 猜成语游戏相关变量
-    this.gameDate = '';
-    this.gridSize = 3;
-    this.grid = [];
-    this.gridCells = [];
-    this.characterTypes = {};
-    this.selectedCharacterType = null;
-    this.buttons = [];
-    
-    // 成语数据
     this.idiomsData = [];
     this.selectedIdioms = [];
     this.idiomCharacters = [];
-    
-    // 块相关
-    this.allBlocks = [];
-    this.blockData = {};
     this.chessBoard = [];
-    this.stackHeight = 4;
-    this.layerOffset = 8;
-    
-    // 卡槽
-    this.cardSlot = null;
+    this.buttons = [];
+    this.cardSlot = {};
+    this.removedCards = {};
     this.movingCard = null;
     this.animationDuration = 500;
-    
-    // 网格配置
-    this.cellSize = 60;
-    this.gridSpacing = 10;
     
     // 难度系数配置 (1-10，1最简单，10 hardest)
     this.difficultyLevel = 6;
@@ -46,14 +22,37 @@ class Level2 {
     // 按钮使用次数限制（第二关每个按钮各3次）
     this.buttonUsageLimits = { remove: 3, undo: 3, shuffle: 3 };
     this.buttonUsageRemaining = { remove: 3, undo: 3, shuffle: 3 };
+
+    // 背景图
+    this.bgImage = null;
+    this.bgImageLoaded = false;
   }
   
   async init() {
+    // 加载背景图片
+    await this.loadBackgroundImage();
+
     // 加载成语数据
     await this.loadIdiomData();
     
     // 初始化第一关
     this.initLevel();
+  }
+  
+  async loadBackgroundImage() {
+    return new Promise((resolve) => {
+      if (typeof wx !== 'undefined') {
+        this.bgImage = wx.createImage();
+        this.bgImage.onload = () => { this.bgImageLoaded = true; resolve(); };
+        this.bgImage.onerror = () => { console.warn('背景图片加载失败'); this.bgImageLoaded = false; resolve(); };
+        this.bgImage.src = 'gameBG.png';
+      } else {
+        this.bgImage = new Image();
+        this.bgImage.onload = () => { this.bgImageLoaded = true; resolve(); };
+        this.bgImage.onerror = () => { console.warn('背景图片加载失败'); this.bgImageLoaded = false; resolve(); };
+        this.bgImage.src = './gameBG.png';
+      }
+    });
   }
   
   async loadIdiomData() {
@@ -1327,6 +1326,32 @@ class Level2 {
     // 使用传入的ctx或者默认的this.ctx
     const context = ctx || this.ctx;
     
+    // 绘制背景图片
+    if (this.bgImageLoaded && this.bgImage) {
+      const imageAspect = this.bgImage.width / this.bgImage.height;
+      const canvasAspect = this.width / this.height;
+      let drawWidth, drawHeight, drawX, drawY;
+      if (imageAspect > canvasAspect) {
+        drawHeight = this.height * 1.07;
+        drawWidth = drawHeight * imageAspect;
+        drawX = (this.width - drawWidth) / 2;
+        drawY = (this.height - drawHeight) / 2;
+      } else {
+        drawWidth = this.width * 1.05;
+        drawHeight = drawWidth / imageAspect;
+        drawX = (this.width - drawWidth) / 2;
+        drawY = (this.height - drawHeight) / 2;
+      }
+      context.drawImage(this.bgImage, drawX, drawY, drawWidth, drawHeight);
+    } else {
+      const gradient = context.createLinearGradient(0, 0, 0, this.height);
+      gradient.addColorStop(0, '#87CEEB');
+      gradient.addColorStop(1, '#98FB98');
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, this.width, this.height);
+    }
+    // 背景白色蒙版已移除
+
     // 绘制标题
     context.fillStyle = '#333333';
     context.font = 'bold 24px Arial';
@@ -1476,6 +1501,26 @@ class Level2 {
     
     // 恢复绘图状态
     this.ctx.restore();
+
+    // 顶层卡片右上角显示下一张文字（半透明白，10px）
+    if (isTopMostVisible) {
+      const nextBlocks = blocksAtPosition.filter(b => b.level < block.level);
+      if (nextBlocks.length > 0) {
+        const nextLevel = Math.max(...nextBlocks.map(b => b.level));
+        const nextBlock = nextBlocks.find(b => b.level === nextLevel);
+        const nextChar = this.characterTypes[nextBlock.type];
+        if (nextChar && nextChar.icon) {
+          const pad = 4;
+          this.ctx.save();
+          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          this.ctx.font = 'bold 10px Arial';
+          this.ctx.textAlign = 'right';
+          this.ctx.textBaseline = 'top';
+          this.ctx.fillText(nextChar.icon, layerX + cell.width - pad, layerY + pad);
+          this.ctx.restore();
+        }
+      }
+    }
     
     // 高亮选中的字符类型（不受透明度影响）
     if (isClickable && block.type === this.selectedCharacterType) {
@@ -1618,6 +1663,7 @@ class Level2 {
             x + this.cardSlot.cardWidth / 2,
             y + this.cardSlot.cardHeight / 2 + 5
           );
+          // （已移除）卡槽中的右上角下一张提示，不再显示，以免移动后仍显示
         }
       }
     }
@@ -1690,6 +1736,7 @@ class Level2 {
           x + this.removedCards.cardWidth / 2,
           y + this.removedCards.cardHeight / 2 + 5
         );
+        // （已移除）移出区右上角下一张提示，不再显示，以免移动后仍显示
       }
     }
     
@@ -1725,7 +1772,7 @@ class Level2 {
     this.ctx.strokeStyle = '#333333';
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(x, y, this.cardSlot.cardWidth, this.cardSlot.cardHeight);
-    
+
     // 绘制移动中卡片图标
     this.ctx.fillStyle = '#000000';
     this.ctx.font = 'bold 16px Arial';
@@ -1738,5 +1785,4 @@ class Level2 {
   }
 }
 
-// 导出Level1类供其他模块使用
 module.exports = Level2;
