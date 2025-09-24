@@ -108,7 +108,7 @@ class Level1 {
       
       // 随机选择10个成语
       this.selectedIdioms = [];
-      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 10);
+      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 9);
       
       for (const index of randomIndices) {
         this.selectedIdioms.push(this.idiomsData[index]);
@@ -130,7 +130,7 @@ class Level1 {
       console.error('加载成语数据失败:', error);
       // 使用默认数据：从 data.js 中随机选择10个成语
       this.selectedIdioms = [];
-      const randomIndices = this.generateRandomIndices(idioms.length, 10);
+      const randomIndices = this.generateRandomIndices(idioms.length, 9);
       
       for (const index of randomIndices) {
         this.selectedIdioms.push(idioms[index]);
@@ -928,7 +928,7 @@ class Level1 {
     // console.log('- 卡槽剩余卡片:', this.cardSlot.cards.length);
     
     // 通关条件：所有成语完成 + 九宫格无剩余卡片 + 卡槽为空
-    if (this.selectedIdioms.length === 1 && !hasRemainingBlocks && this.cardSlot.cards.length === 0) {
+    if (this.selectedIdioms.length === 0 && !hasRemainingBlocks && this.cardSlot.cards.length === 0) {
       // console.log('通关条件满足，显示通关弹窗');
       this.game.showModalDialog(
         '恭喜过关',
@@ -1109,7 +1109,7 @@ class Level1 {
           this.cardSlot.cards.splice(index, 1);
         }
         
-        if (this.selectedIdioms.length === 1) {
+        if (this.selectedIdioms.length === 0) {
           // console.log('所有成语完成，检查通关条件');
            // 检查是否真正通关：所有成语完成 + 九宫格无剩余卡片 + 卡槽为空
           this.checkLevelComplete();

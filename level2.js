@@ -1,3 +1,5 @@
+const idioms = require('./data.js');
+
 class Level2 {
   constructor(game) {
     this.game = game;
@@ -26,6 +28,7 @@ class Level2 {
     // 背景图
     this.bgImage = null;
     this.bgImageLoaded = false;
+    this.allBlocks = [];
   }
   
   async init() {
