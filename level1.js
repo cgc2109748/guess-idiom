@@ -1149,7 +1149,7 @@ class Level1 {
       const canvasAspect = this.width / this.height;
       let drawWidth, drawHeight, drawX, drawY;
       if (imageAspect > canvasAspect) {
-        drawHeight = this.height * 1.07;
+        drawHeight = this.height ;
         drawWidth = drawHeight * imageAspect;
         drawX = (this.width - drawWidth) / 2;
         drawY = (this.height - drawHeight) / 2;
@@ -1173,19 +1173,19 @@ class Level1 {
     context.fillStyle = '#333333';
     context.font = 'bold 24px Arial';
     context.textAlign = 'center';
-    context.fillText('拼来凑去', this.width / 2, 40);
+    context.fillText('拼来凑去', this.width / 2, 55);
     
     // 绘制关卡（替代原日期位置）
     context.fillStyle = '#666666';
     context.font = '16px Arial';
-    context.fillText('第1关', this.width / 2, 70);
+    context.fillText('第1关', this.width / 2, 85);
     
     // 绘制剩余卡片数量（在关卡下方）
     const remainingBlocks = this.allBlocks.filter(block => block.status === 0).length;
     context.fillStyle = '#4caf50';
     context.font = 'bold 16px Arial';
     context.textAlign = 'center';
-    context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 95);
+    context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 105);
     
     // 绘制网格（改进的渲染逻辑）
     this.renderBlocks();

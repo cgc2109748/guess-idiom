@@ -91,7 +91,7 @@ class Level2 {
       console.error('加载成语数据失败:', error);
       // 使用默认数据：从 data.js 中随机选择
       this.selectedIdioms = [];
-      const randomIndices = this.generateRandomIndices(require('./data.js').length, 9);
+      const randomIndices = this.generateRandomIndices(require('./data.js').length, 56);
       for (const index of randomIndices) {
         this.selectedIdioms.push(require('./data.js')[index]);
       }
@@ -213,63 +213,7 @@ class Level2 {
     this.printRowBounds();
   }
   
-  printRowBounds() {
-    console.log('=== 第二关卡片行边界坐标 ===');
-    console.log('调试信息：');
-    console.log('- cellSize:', this.cellSize);
-    console.log('- gridSpacing:', this.gridSpacing);
-    console.log('- gridStartX:', this.gridStartX);
-    console.log('- gridStartY:', this.gridStartY);
-    console.log('- canvas width:', this.width);
-    console.log('- canvas height:', this.height);
-    console.log('- devicePixelRatio:', window.devicePixelRatio || 1);
-    
-    // 统计每行的卡片位置
-    const rowData = {};
-    
-    // 遍历所有位置，找出每行的卡片
-    const allPositions = [...this.diamondPositions, ...this.trianglePositions];
-    allPositions.forEach(pos => {
-      if (!rowData[pos.y]) {
-        rowData[pos.y] = [];
-      }
-      if (this.gridCells[pos.x] && this.gridCells[pos.x][pos.y]) {
-        const cell = this.gridCells[pos.x][pos.y];
-        rowData[pos.y].push({
-          x: pos.x,
-          cellX: cell.x,
-          cellY: cell.y,
-          width: cell.width,
-          height: cell.height
-        });
-      }
-    });
-    
-    // 按行号排序并打印每行的边界（以外层卡片矩形为准，精确到小数）
-    const sortedRows = Object.keys(rowData).map(Number).sort((a, b) => a - b);
-    sortedRows.forEach((rowIndex, displayIndex) => {
-      const cells = rowData[rowIndex];
-      if (cells.length > 0) {
-        // 找到最左边和最右边的卡片
-        const leftmost = cells.reduce((min, cell) => cell.cellX < min.cellX ? cell : min);
-        const rightmost = cells.reduce((max, cell) => cell.cellX > max.cellX ? cell : max);
-        
-        // 外层卡片矩形（与渲染背景/边框一致），应用全局校准
-        const offsetX = (this.hitCalibration?.offsetX || 0);
-        const offsetY = (this.hitCalibration?.offsetY || 0);
-        const extraW = (this.hitCalibration?.extraWidth || 0);
-        const extraH = (this.hitCalibration?.extraHeight || 0);
-        const leftTopX = leftmost.cellX + offsetX;
-        const leftTopY = leftmost.cellY + offsetY;
-        const rightBottomX = rightmost.cellX + rightmost.width + extraW;
-        const rightBottomY = rightmost.cellY + rightmost.height + extraH;
-        
-        console.log(`第${displayIndex + 1}行：左上坐标：(${leftTopX.toFixed(6)}, ${leftTopY.toFixed(6)})，右下坐标：(${rightBottomX.toFixed(6)}, ${rightBottomY.toFixed(6)})`);
-      }
-    });
-    
-    console.log('=== 坐标打印完成 ===');
-  }
+  printRowBounds() { /* 调试函数移除 */ return; }
   
   initCardSlot() {
     // 卡槽配置
@@ -562,9 +506,8 @@ class Level2 {
   
   handleTouch(x, y) {
     // 打印点击坐标到控制台
-    console.log(`点击坐标: (${x}, ${y})`);
-    
-    // 检查是否点击了模态框关闭按钮
+    // console.log(`点击坐标: (${x}, ${y})`);
+    // debug removed
     if (this.game.showModal) {
       const modalWidth = this.width - 60;
       const modalHeight = 120;
@@ -810,7 +753,7 @@ class Level2 {
     // 计算目标位置
     const availableWidth = this.cardSlot.width - 20;
     const totalCardWidth = this.cardSlot.maxCards * this.cardSlot.cardWidth + (this.cardSlot.maxCards - 1) * this.cardSlot.cardSpacing;
-    let actualCardSpacing = this.cardSlot.cardSpacing;
+    let actualCardSpacing = this.cardSlot.cardWidth;
     if (totalCardWidth > availableWidth) {
       actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
     }
@@ -1097,7 +1040,7 @@ class Level2 {
       // 如果还有未完成的成语，说明游戏失败
       if (this.selectedIdioms.length > 0) {
         // TODO: 后续补全没有更多可点击块时的处理逻辑
-        console.log('没有更多可点击的块，但还有未完成的成语');
+        // console.log('没有更多可点击的块，但还有未完成的成语');
       }
     }
   }
@@ -1195,7 +1138,7 @@ class Level2 {
       const canvasAspect = this.width / this.height;
       let drawWidth, drawHeight, drawX, drawY;
       if (imageAspect > canvasAspect) {
-        drawHeight = this.height * 1.07;
+        drawHeight = this.height ;
         drawWidth = drawHeight * imageAspect;
         drawX = (this.width - drawWidth) / 2;
         drawY = (this.height - drawHeight) / 2;
@@ -1219,19 +1162,19 @@ class Level2 {
     context.fillStyle = '#333333';
     context.font = 'bold 24px Arial';
     context.textAlign = 'center';
-    context.fillText('拼来凑去', this.width / 2, 40);
+    context.fillText('拼来凑去', this.width / 2, 55);
     
     // 绘制关卡（替代原日期位置）
     context.fillStyle = '#666666';
     context.font = '16px Arial';
-    context.fillText('第2关', this.width / 2, 70);
+    context.fillText('第2关', this.width / 2, 85);
     
     // 绘制剩余卡片数量（在关卡下方）
     const remainingBlocks = this.allBlocks.filter(block => block.status === 0).length;
     context.fillStyle = '#4caf50';
     context.font = 'bold 16px Arial';
     context.textAlign = 'center';
-    context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 95);
+    context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 105);
     
     // 绘制网格（改进的渲染逻辑）
     this.renderBlocks();
