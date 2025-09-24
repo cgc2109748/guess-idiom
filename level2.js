@@ -15,41 +15,39 @@ class Level2 {
     this.removedCards = {};
     this.movingCard = null;
     this.animationDuration = 500;
-    
-    // 难度系数配置 (1-10，1最简单，10 hardest)
     this.difficultyLevel = 6;
-    // 调试：显示7×9矩阵覆盖层
     this.showMatrixOverlay = false;
-
-    // 按钮使用次数限制（第二关每个按钮各3次）
     this.buttonUsageLimits = { remove: 3, undo: 3, shuffle: 3 };
     this.buttonUsageRemaining = { remove: 3, undo: 3, shuffle: 3 };
-
-    // 背景图
     this.bgImage = null;
     this.bgImageLoaded = false;
     this.allBlocks = [];
   }
   
   async init() {
-    // 加载背景图片
+    // 加载背景图片和成语数据，然后初始化关卡
     await this.loadBackgroundImage();
-
-    // 加载成语数据
     await this.loadIdiomData();
-    
-    // 初始化第一关
     this.initLevel();
+    // 清空移出卡片区域并关闭弹窗（保持与第一关一致的初始化体验）
+    if (this.removedCards && this.removedCards.cards) {
+      this.removedCards.cards = [];
+    }
+    if (this.game && this.game.modalConfig) {
+      this.game.modalConfig.show = false;
+    }
   }
   
   async loadBackgroundImage() {
     return new Promise((resolve) => {
       if (typeof wx !== 'undefined') {
+        // 微信小程序环境
         this.bgImage = wx.createImage();
         this.bgImage.onload = () => { this.bgImageLoaded = true; resolve(); };
         this.bgImage.onerror = () => { console.warn('背景图片加载失败'); this.bgImageLoaded = false; resolve(); };
         this.bgImage.src = 'gameBG.png';
       } else {
+        // 浏览器环境
         this.bgImage = new Image();
         this.bgImage.onload = () => { this.bgImageLoaded = true; resolve(); };
         this.bgImage.onerror = () => { console.warn('背景图片加载失败'); this.bgImageLoaded = false; resolve(); };
@@ -64,17 +62,10 @@ class Level2 {
       if (typeof wx !== 'undefined' && wx.request) {
         // 微信小程序环境
         data = await new Promise((resolve, reject) => {
-          console.log('微信小程序环境');
           wx.request({
             url: './data.json',
-            success: (res) => {
-              console.log('请求成功:', res.data);
-              resolve(res.data);
-            },
-            fail: (res) => {
-              console.log('request fail', res);
-              reject(res);
-            }
+            success: (res) => resolve(res.data),
+            fail: (res) => reject(res)
           });
         });
       } else {
@@ -82,51 +73,38 @@ class Level2 {
         const response = await fetch('./data.json');
         data = await response.json();
       }
-      this.idiomsData = data.idioms;
-      console.log(this.idiomsData)
-      
-      // 随机选择10个成语
+      this.idiomsData = data.idioms || [];
       this.selectedIdioms = [];
-      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 10);
-      
+      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 9);
       for (const index of randomIndices) {
         this.selectedIdioms.push(this.idiomsData[index]);
       }
-      
-      console.log('Level2 正常加载 - 选择的成语数量:', this.selectedIdioms.length);
-      console.log('Level2 正常加载 - 选择的成语:', this.selectedIdioms.map(item => item.idiom));
-      
-
-      
-      // 将所有选中成语的字符收集并打乱
+      // 收集所有选中成语的字符并打乱
       this.idiomCharacters = [];
       this.selectedIdioms.forEach(idiom => {
-        this.idiomCharacters.push(...idiom.idiom.split(''));
+        if (idiom && idiom.idiom) {
+          this.idiomCharacters.push(...idiom.idiom.split(''));
+        }
       });
       this.shuffleArray(this.idiomCharacters);
-      
     } catch (error) {
       console.error('加载成语数据失败:', error);
-      // 使用默认数据：从 data.js 中随机选择10个成语
+      // 使用默认数据：从 data.js 中随机选择
       this.selectedIdioms = [];
-      const randomIndices = this.generateRandomIndices(idioms.length, 10);
-      
+      const randomIndices = this.generateRandomIndices(require('./data.js').length, 9);
       for (const index of randomIndices) {
-        this.selectedIdioms.push(idioms[index]);
+        this.selectedIdioms.push(require('./data.js')[index]);
       }
-      
-      console.log('Level2 默认数据 - 选择的成语数量:', this.selectedIdioms.length);
-      console.log('Level2 默认数据 - 选择的成语:', this.selectedIdioms.map(item => item.idiom));
-      
       this.idiomCharacters = [];
       this.selectedIdioms.forEach(idiom => {
-        this.idiomCharacters.push(...idiom.idiom.split(''));
+        if (idiom && idiom.idiom) {
+          this.idiomCharacters.push(...idiom.idiom.split(''));
+        }
       });
       this.shuffleArray(this.idiomCharacters);
     }
   }
   
-  // 生成指定数量的不重复随机索引
   generateRandomIndices(maxIndex, count) {
     const indices = new Set();
     while (indices.size < count && indices.size < maxIndex) {
@@ -135,99 +113,14 @@ class Level2 {
     }
     return Array.from(indices);
   }
-
+  
   shuffleArray(array) {
-    // 难度1：完全不打乱，按顺序排列
-    if (this.difficultyLevel === 1) {
-      return;
-    }
-    
-    // 难度2-10：根据难度系数控制打乱程度
-    const shuffleIntensity = (this.difficultyLevel - 1) / 9; // 转换为0-1的比例
-    
-    if (this.difficultyLevel === 10) {
-      // 难度10：打乱但保持一半成语卡片能挨着排列
-      this.shuffleWithGrouping(array);
-    } else {
-      // 难度2-9：渐进式打乱
-      this.gradualShuffle(array, shuffleIntensity);
-    }
-  }
-  
-  // 渐进式打乱方法
-  gradualShuffle(array, intensity) {
-    const shuffleCount = Math.floor(array.length * intensity * 2);
-    
-    for (let count = 0; count < shuffleCount; count++) {
-      for (let i = array.length - 1; i > 0; i--) {
-        // 根据强度调整交换范围，强度越低交换距离越近
-        const maxDistance = Math.max(1, Math.floor(i * intensity * 0.5));
-        const j = Math.max(0, i - maxDistance);
-        const randomJ = j + Math.floor(Math.random() * (maxDistance + 1));
-        [array[i], array[randomJ]] = [array[randomJ], array[i]];
-      }
-    }
-  }
-  
-  // 分组打乱方法（难度10专用）
-  shuffleWithGrouping(array) {
-    // 将数组分成成语组
-    const idiomGroups = [];
-    const groupSize = 4; // 每个成语4个字
-    
-    for (let i = 0; i < array.length; i += groupSize) {
-      idiomGroups.push(array.slice(i, i + groupSize));
-    }
-    
-    // 保持一半的成语组相对完整
-    const keepIntactCount = Math.floor(idiomGroups.length / 2);
-    const intactGroups = idiomGroups.slice(0, keepIntactCount);
-    const shuffleGroups = idiomGroups.slice(keepIntactCount);
-    
-    // 打乱需要打乱的组
-    for (let group of shuffleGroups) {
-      for (let i = group.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [group[i], group[j]] = [group[j], group[i]];
-      }
-    }
-    
-    // 重新组合数组
-    array.length = 0;
-    intactGroups.forEach(group => array.push(...group));
-    shuffleGroups.forEach(group => array.push(...group));
-    
-    // 对整体进行轻微打乱
-    for (let i = 0; i < 3; i++) {
-      const pos1 = Math.floor(Math.random() * array.length);
-      const pos2 = Math.floor(Math.random() * array.length);
-      [array[pos1], array[pos2]] = [array[pos2], array[pos1]];
-    }
-  }
-  
-  // 设置难度等级
-  setDifficultyLevel(level) {
-    this.difficultyLevel = Math.max(1, Math.min(10, level));
-  }
-  
-  // 获取当前难度等级
-  getDifficultyLevel() {
-    return this.difficultyLevel;
-  }
-  
-  // 增加难度
-  increaseDifficulty() {
-    if (this.difficultyLevel < 10) {
-      this.difficultyLevel++;
-      this.resetLevel(); // 重新生成关卡以应用新难度
-    }
-  }
-  
-  // 降低难度
-  decreaseDifficulty() {
-    if (this.difficultyLevel > 1) {
-      this.difficultyLevel--;
-      this.resetLevel(); // 重新生成关卡以应用新难度
+    // 难度1：不打乱
+    if (this.difficultyLevel === 1) return;
+    // Fisher–Yates 打乱
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
     }
   }
   
@@ -692,11 +585,9 @@ class Level2 {
     
     // 检查按钮点击
     for (let button of this.buttons) {
-      // 针对三个按钮（移出/撤回/洗牌）统一下移点击命中区域到可视位置：3 × 按钮高度
-      const needsOffset = (button.id === 'remove' || button.id === 'undo' || button.id === 'shuffle');
-      const yOffset = needsOffset ? (3 * button.height) : 0;
-      const hitTop = button.y + yOffset;
-      const hitBottom = button.y + button.height + yOffset;
+      // 对齐渲染：不再对按钮点击区域施加额外偏移
+      const hitTop = button.y;
+      const hitBottom = button.y + button.height;
       if (x >= button.x && x <= button.x + button.width &&
           y >= hitTop && y <= hitBottom) {
         this.handleButtonClick(button.id);
@@ -777,13 +668,12 @@ class Level2 {
       actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
     }
     
-    // 点击命中区域与渲染对齐：整体向下校正，避免与上方九宫格误判
-    // 采用与移出区域一致的校正量：8/3 × 卡片高度
-    const clickYOffset = (8 * this.cardSlot.cardHeight) / 3;
+    // 点击命中区域与渲染对齐：renderCardSlot 使用 y = this.cardSlot.y + 5
+    const clickYOffset = 5;
     
     for (let i = 0; i < this.cardSlot.cards.length; i++) {
       const cardX = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
-      const cardY = this.cardSlot.y + 5 + clickYOffset;
+      const cardY = this.cardSlot.y + clickYOffset;
       
       // 确保不超出卡槽边界
       if (cardX + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
@@ -797,52 +687,22 @@ class Level2 {
     return -1;
   }
   
-  moveSlotCardToRemoved(cardIndex) {
-    // 将卡槽中的卡片移动到移出区域
-    if (cardIndex >= 0 && cardIndex < this.cardSlot.cards.length) {
-      const card = this.cardSlot.cards.splice(cardIndex, 1)[0];
-      this.removedCards.cards.push(card);
-
-      // 更新移出卡片区域的位置和大小
-      this.updateRemovedCardsLayout();
-
-      // 限制：移出区最多10张，超过立即判定失败
-      if (this.removedCards.maxCards != null && this.removedCards.cards.length > this.removedCards.maxCards) {
-        this.showGameFailure();
-      }
-    }
-  }
-  
   getClickedBlock(x, y) {
-    // 基于“7行×9列”矩阵的命中检测：
-    // - 先把屏幕坐标量化到矩阵中的列(col: 0..8)、行(row0: 0..6)
-    // - 再映射到布局坐标：(gridX, gridY) => (col, row0 + minGridY)
-    // - 如果该格子存在可点击的顶层卡片，则选择它；否则无反应
+    // 与渲染网格严格对齐的命中检测：使用 gridStartX/Y 与 step 直接量化
     if (this.gridStartX == null || this.gridStartY == null) return null;
     const stepX = this.stepX || (this.cellSize + this.gridSpacing);
     const stepY = this.stepY || (this.cellSize + this.gridSpacing);
     const minGX = (this.minGridX != null) ? this.minGridX : 0;
     const minGY = (this.minGridY != null) ? this.minGridY : 0;
-    const maxCols = this.matrixCols || ((this.maxGridX != null && this.minGridX != null) ? (this.maxGridX - this.minGridX + 1) : 0);
-    const maxRows = this.matrixRows || ((this.maxGridY != null && this.minGridY != null) ? (this.maxGridY - this.minGridY + 1) : 0);
-    
-    const col = Math.floor((x - (this.gridStartX + (this.hitCalibration?.offsetX || 0))) / stepX);
-    
-    // 行计算采用逐行上移的bias，使每一行的可点区域被“拉高”；首行保持不变
-    const yAdj = y - (this.gridStartY + (this.hitCalibration?.offsetY || 0));
-    if (yAdj < 0) return null;
-    const roughRow = Math.floor(yAdj / stepY);
-    const perRowBias = (this.hitRowBiasPerRow != null) ? this.hitRowBiasPerRow : Math.round(this.cellSize * 0.15);
-    // 针对指定行额外“拉长”点击高度（默认拉长第5、第6行：索引4、5）
-    const extraBoostMap = this.hitRowExtraBoost || { 4: Math.round(this.cellSize * 0.5), 5: Math.round(this.cellSize * 1.0) };
-    const extraBoost = extraBoostMap[roughRow] || 0;
-    const yBiased = yAdj - perRowBias * roughRow - extraBoost;
-    let row0 = Math.floor(yBiased / stepY);
-    if (row0 < 0) row0 = 0;
-    if (row0 >= maxRows) row0 = maxRows - 1;
-    
-    const gridX = minGX + col;
-    const gridY = minGY + row0;
+    const cols = this.matrixCols || ((this.maxGridX != null && this.minGridX != null) ? (this.maxGridX - this.minGridX + 1) : 0);
+    const rows = this.matrixRows || ((this.maxGridY != null && this.minGridY != null) ? (this.maxGridY - this.minGridY + 1) : 0);
+
+    const colIndex = Math.floor((x - this.gridStartX) / stepX);
+    const rowIndex = Math.floor((y - this.gridStartY) / stepY);
+    if (colIndex < 0 || rowIndex < 0 || colIndex >= cols || rowIndex >= rows) return null;
+
+    const gridX = minGX + colIndex;
+    const gridY = minGY + rowIndex;
     
     const topBlock = this.getTopClickableBlock(gridX, gridY);
     return topBlock || null;
