@@ -17,7 +17,7 @@ class Level2 {
     this.animationDuration = 500;
     this.cardCompletionAnimation = null;
     this.difficultyLevel = 4;
-    this.showMatrixOverlay = false;
+    // this.showMatrixOverlay 已移除
     this.buttonUsageLimits = { remove: 3, undo: 3, shuffle: 3 };
     this.buttonUsageRemaining = { remove: 3, undo: 3, shuffle: 3 };
     this.bgImage = null;
@@ -89,7 +89,7 @@ class Level2 {
       });
       this.shuffleArray(this.idiomCharacters);
     } catch (error) {
-      console.error('加载成语数据失败:', error);
+      // console.error('加载成语数据失败:', error);
       // 使用默认数据：从 data.js 中随机选择
       this.selectedIdioms = [];
       const randomIndices = this.generateRandomIndices(require('./data.js').length, 56);
@@ -171,47 +171,12 @@ class Level2 {
     // 计算网格位置
     this.calculateGrid();
 
-    // 基于用户提供的第一行坐标进行命中区域校准（全局偏移与尺寸修正）
-    this.hitCalibration = { offsetX: 0, offsetY: 0, extraWidth: 0, extraHeight: 0 };
-    (() => {
-      try {
-        const allPositions = [...this.diamondPositions, ...this.trianglePositions];
-        if (allPositions.length === 0) return;
-        const minY = Math.min(...allPositions.map(p => p.y));
-        const rowCells = allPositions
-          .filter(p => p.y === minY)
-          .map(p => (this.gridCells[p.x] && this.gridCells[p.x][p.y]) ? this.gridCells[p.x][p.y] : null)
-          .filter(Boolean);
-        if (rowCells.length === 0) return;
-        const leftCell = rowCells.reduce((min, c) => c.x < min.x ? c : min);
-        const rightCell = rowCells.reduce((max, c) => c.x > max.x ? c : max);
-        const computedLeftTopX = leftCell.x;
-        const computedLeftTopY = leftCell.y;
-        const computedRightBottomX = rightCell.x + rightCell.width;
-        const computedRightBottomY = rightCell.y + rightCell.height;
-        const targetLeftTopX = 177.484375;
-        const targetLeftTopY = 137.875;
-        const targetRightBottomX = 212.953125;
-        const targetRightBottomY = 179.28125;
-        this.hitCalibration.offsetX = targetLeftTopX - computedLeftTopX;
-        this.hitCalibration.offsetY = targetLeftTopY - computedLeftTopY;
-        const computedWidth = computedRightBottomX - computedLeftTopX;
-        const computedHeight = computedRightBottomY - computedLeftTopY;
-        const targetWidth = targetRightBottomX - targetLeftTopX;
-        const targetHeight = targetRightBottomY - targetLeftTopY;
-        this.hitCalibration.extraWidth = targetWidth - computedWidth;
-        this.hitCalibration.extraHeight = targetHeight - computedHeight;
-        console.log('[命中校准] offsetX:', this.hitCalibration.offsetX.toFixed(6), 'offsetY:', this.hitCalibration.offsetY.toFixed(6), 'extraW:', this.hitCalibration.extraWidth.toFixed(6), 'extraH:', this.hitCalibration.extraHeight.toFixed(6));
-      } catch (e) {
-        console.warn('命中校准失败：', e);
-      }
-    })();
+    // 命中区域校准逻辑已移除
     
     // 初始化按钮
     this.initButtons();
     
-    // 打印每行卡片的边界坐标
-    this.printRowBounds();
+    // 调试打印已移除
   }
   
   printRowBounds() { /* 调试函数移除 */ return; }
@@ -578,9 +543,8 @@ class Level2 {
                                      (this.removedCards.cards.length - 1));
     }
     
-    // 进一步微调：高度与渲染一致，则继续向下校正 1/3 × 卡片高度
-    // 最终总校正量 = 8/3 × 卡片高度
-    const clickYOffset = (8 * this.removedCards.cardHeight) / 3;
+    // 点击命中区域与渲染完全一致：与绘制时的 +0 对齐
+    const clickYOffset = 0;
     
     for (let i = 0; i < this.removedCards.cards.length; i++) {
       const cardX = this.removedCards.x + 10 + i * (this.removedCards.cardWidth + actualCardSpacing);
@@ -825,10 +789,10 @@ class Level2 {
   removeLastCard() {
     // 移出卡槽中的前四个卡片到下方区域
     const cardsToRemove = Math.min(4, this.cardSlot.cards.length);
-    console.log("outside"+`Removing ${cardsToRemove} cards`);
+    // console.log("outside"+`Removing ${cardsToRemove} cards`);
     if (cardsToRemove > 0) {
       // 将前四个卡片移到移出区域
-      console.log("inside"+`Removing ${cardsToRemove} cards`);
+      // console.log("inside"+`Removing ${cardsToRemove} cards`);
       const removedCards = this.cardSlot.cards.splice(0, cardsToRemove);
       this.removedCards.cards = this.removedCards.cards.concat(removedCards);
       
@@ -1007,7 +971,7 @@ class Level2 {
             if (this.game.showMainMenu) {
               this.game.showMainMenu();
             } else {
-              console.log('返回主页');
+              // console.log('返回主页');
               // 可以在这里添加返回主页的具体逻辑
             }
           }
@@ -1187,13 +1151,6 @@ class Level2 {
     // 绘制网格（改进的渲染逻辑）
     this.renderBlocks();
     
-    // 绘制7×9矩阵半透明覆盖层（仅调试）
-    if (this.showMatrixOverlay) {
-      this.renderMatrixOverlay();
-    }
-    
-    // 调试覆盖层已关闭（不再绘制命中框）
-    
     // 绘制底部功能按钮
     this.renderButtons();
     
@@ -1218,51 +1175,7 @@ class Level2 {
   }
   
   // 调试可视化：7×9矩阵覆盖层
-  renderMatrixOverlay() {
-    // 需要 calculateGrid 先计算以下参数
-    const stepX = this.stepX || (this.cellSize + this.gridSpacing);
-    const stepY = this.stepY || (this.cellSize + this.gridSpacing);
-    const minGX = (this.minGridX != null) ? this.minGridX : 0;
-    const minGY = (this.minGridY != null) ? this.minGridY : 0;
-    const cols = this.matrixCols || ((this.maxGridX != null && this.minGridX != null) ? (this.maxGridX - this.minGridX + 1) : 9);
-    const rows = this.matrixRows || ((this.maxGridY != null && this.minGridY != null) ? (this.maxGridY - this.minGridY + 1) : 7);
-    if (this.gridStartX == null || this.gridStartY == null) return;
-    
-    this.ctx.save();
-    this.ctx.lineWidth = 1;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = this.gridStartX + c * stepX;
-        const y = this.gridStartY + r * stepY;
-        const w = this.cellSize;
-        const h = this.cellSize;
-        const gridX = minGX + c;
-        const gridY = minGY + r;
-        
-        // 判断该格子是否有可见卡片
-        const hasVisibleBlock = this.allBlocks.some(b => b.status === 0 && b.x === gridX && b.y === gridY);
-        
-        if (hasVisibleBlock) {
-          this.ctx.fillStyle = 'rgba(50, 205, 50, 0.22)'; // 绿色半透明（有卡片）
-        } else {
-          this.ctx.fillStyle = 'rgba(70, 130, 180, 0.10)'; // 浅蓝半透明（无卡片）
-        }
-        this.ctx.fillRect(x, y, w, h);
-        
-        // 描边网格
-        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
-        this.ctx.strokeRect(x, y, w, h);
-        
-        // 在左上角标注(c,r)
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-        this.ctx.font = '10px Arial';
-        this.ctx.textAlign = 'left';
-        this.ctx.textBaseline = 'top';
-        this.ctx.fillText(`${c},${r}`, x + 2, y + 2);
-      }
-    }
-    this.ctx.restore();
-  }
+  renderMatrixOverlay() { /* removed */ }
   
   renderSingleBlock(block) {
     if (!this.gridCells[block.x] || !this.gridCells[block.x][block.y]) return;

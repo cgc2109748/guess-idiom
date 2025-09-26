@@ -106,6 +106,16 @@ class GuessIdiomGame {
     this.gameState = GameState.MENU;
   }
   
+  // 新增：返回主页（菜单）方法，供各关的弹窗按钮调用
+  async showMainMenu() {
+    // 隐藏弹窗
+    this.hideModalDialog();
+    // 清空当前关卡实例（避免继续渲染关卡）
+    this.currentLevel = null;
+    // 重新初始化菜单并切换到菜单状态
+    await this.initMenu();
+  }
+  
   async initLevel1() {
     // 创建第一关实例
     this.currentLevel = new Level1(this);
@@ -253,7 +263,7 @@ class GuessIdiomGame {
     this.modalConfig = { show: false };
   }
   
-  // 处理弹窗按钮点击
+  // 修复：弹窗按钮点击命中检测，只有点击到具体按钮才触发对应回调
   handleModalClick(x, y) {
     if (!this.modalConfig.show) return;
     
@@ -261,16 +271,16 @@ class GuessIdiomGame {
     
     for (let i = 0; i < this.modalConfig.buttons.length; i++) {
       const buttonX = layout.startX + i * (layout.buttonWidth + layout.buttonSpacing);
-      
-      // if (x >= buttonX && x <= buttonX + layout.buttonWidth && 
-      //     y >= layout.buttonY && y <= layout.buttonY + layout.buttonHeight) {
-        // 点击了按钮
+      const withinX = x >= buttonX && x <= buttonX + layout.buttonWidth;
+      const withinY = y >= layout.buttonY && y <= layout.buttonY + layout.buttonHeight;
+      if (withinX && withinY) {
+        // 点击了该按钮
         this.modalConfig.show = false;
         if (this.modalConfig.buttons[i].callback) {
           this.modalConfig.buttons[i].callback();
         }
         break;
-      // }
+      }
     }
   }
   
