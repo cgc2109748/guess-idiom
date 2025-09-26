@@ -1099,20 +1099,15 @@ class Level1 {
       
       
       if (isMatch) {
-         // 移除已完成的成语
-      this.selectedIdioms = this.selectedIdioms.filter(item => item !== idiom);
-      // console.log('成语完成:', idiom.idiom, '剩余成语数量:', this.selectedIdioms.length);
-      
-         // 只移除用于组成成语的卡片
-         usedCardIndices.sort((a, b) => b - a); // 从后往前删除，避免索引变化
-        for (let index of usedCardIndices) {
-          this.cardSlot.cards.splice(index, 1);
-        }
-        
-        if (this.selectedIdioms.length === 0) {
-          // console.log('所有成语完成，检查通关条件');
-           // 检查是否真正通关：所有成语完成 + 九宫格无剩余卡片 + 卡槽为空
-          this.checkLevelComplete();
+         // 改为触发完成动画：高亮白边并轻微放大，动画结束后再移除
+        if (!this.cardCompletionAnimation) {
+          this.cardCompletionAnimation = {
+            indices: usedCardIndices.slice(),
+            idiom,
+            startTime: Date.now(),
+            duration: 550,
+            progress: 0
+          };
         }
         return;
       }
@@ -1120,6 +1115,27 @@ class Level1 {
   }
   
   update() {
+    // 成语完成动画进度更新
+    if (this.cardCompletionAnimation) {
+      const elapsed = Date.now() - this.cardCompletionAnimation.startTime;
+      const progress = Math.min(elapsed / this.cardCompletionAnimation.duration, 1);
+      // 使用缓动函数
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      this.cardCompletionAnimation.progress = easeProgress;
+      if (progress >= 1) {
+        // 动画结束：移除用于组成成语的卡片，并从待完成成语列表移除该成语
+        const used = this.cardCompletionAnimation.indices.slice().sort((a, b) => b - a);
+        for (let index of used) {
+          this.cardSlot.cards.splice(index, 1);
+        }
+        this.selectedIdioms = this.selectedIdioms.filter(item => item !== this.cardCompletionAnimation.idiom);
+        this.cardCompletionAnimation = null;
+        if (this.selectedIdioms.length === 0) {
+          this.checkLevelComplete();
+        }
+      }
+    }
+
     // 更新卡片移动动画
     if (this.movingCard) {
       const elapsed = Date.now() - this.movingCard.startTime;
@@ -1445,7 +1461,7 @@ class Level1 {
       }
     }
     
-    // 绘制卡槽中的卡片
+    // 绘制卡槽中的卡片（加入完成动画：白边高亮 + 轻微放大）
     for (let i = 0; i < this.cardSlot.cards.length; i++) {
       const card = this.cardSlot.cards[i];
       const character = this.characterTypes[card.characterType];
@@ -1454,11 +1470,25 @@ class Level1 {
         const x = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
         const y = this.cardSlot.y + 5;
         
+        const isAnimating = this.cardCompletionAnimation && this.cardCompletionAnimation.indices && this.cardCompletionAnimation.indices.includes(i);
+        const scale = isAnimating ? 1 + 0.20 * (this.cardCompletionAnimation.progress || 0) : 1;
+        const scaledW = this.cardSlot.cardWidth * scale;
+        const scaledH = this.cardSlot.cardHeight * scale;
+        const sx = x + (this.cardSlot.cardWidth - scaledW) / 2;
+        const sy = y + (this.cardSlot.cardHeight - scaledH) / 2;
+        
         // 确保卡片不超出卡槽边界
         if (x + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
           // 绘制卡片背景
           this.ctx.fillStyle = character.color;
-          this.ctx.fillRect(x + 1, y + 1, this.cardSlot.cardWidth - 2, this.cardSlot.cardHeight - 2);
+          this.ctx.fillRect(sx + 1, sy + 1, scaledW - 2, scaledH - 2);
+          
+          // 高亮白边（在动画中）
+          if (isAnimating) {
+            this.ctx.strokeStyle = 'rgba(237, 71, 71, 0.8)';
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(sx, sy, scaledW, scaledH);
+          }
           
           // 绘制卡片图标
           this.ctx.fillStyle = '#000000';
@@ -1466,11 +1496,9 @@ class Level1 {
           this.ctx.textAlign = 'center';
           this.ctx.fillText(
             character.icon,
-            x + this.cardSlot.cardWidth / 2,
-            y + this.cardSlot.cardHeight / 2 + 5
+            sx + scaledW / 2,
+            sy + scaledH / 2 + 5
           );
-          
-          // 右上角“下一张”提示已移除：卡槽内的卡片不显示提示
         }
       }
     }
