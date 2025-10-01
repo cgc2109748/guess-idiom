@@ -16,7 +16,7 @@ class Level2 {
     this.movingCard = null;
     this.animationDuration = 500;
     this.cardCompletionAnimation = null;
-    this.difficultyLevel = 4;
+    this.difficultyLevel = 2;
     // this.showMatrixOverlay 已移除
     this.buttonUsageLimits = { remove: 3, undo: 3, shuffle: 3 };
     this.buttonUsageRemaining = { remove: 3, undo: 3, shuffle: 3 };
@@ -76,10 +76,12 @@ class Level2 {
       }
       this.idiomsData = data.idioms || [];
       this.selectedIdioms = [];
-      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 9);
+      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 56);
+      console.log('随机索引:', this.idiomsData.length);
       for (const index of randomIndices) {
         this.selectedIdioms.push(this.idiomsData[index]);
       }
+      console.log('非catch选中的成语:', this.selectedIdioms);
       // 收集所有选中成语的字符并打乱
       this.idiomCharacters = [];
       this.selectedIdioms.forEach(idiom => {
@@ -96,6 +98,7 @@ class Level2 {
       for (const index of randomIndices) {
         this.selectedIdioms.push(require('./data.js')[index]);
       }
+      console.log('选中的成语:', this.selectedIdioms);
       this.idiomCharacters = [];
       this.selectedIdioms.forEach(idiom => {
         if (idiom && idiom.idiom) {
@@ -787,18 +790,16 @@ class Level2 {
   }
   
   removeLastCard() {
-    // 移出卡槽中的前四个卡片到下方区域
-    const cardsToRemove = Math.min(4, this.cardSlot.cards.length);
-    // console.log("outside"+`Removing ${cardsToRemove} cards`);
+    // 移出卡槽中的卡片到下方区域：按剩余空位限制，最多一次移出4张
+    const remainingSlots = (this.removedCards.maxCards != null)
+      ? (this.removedCards.maxCards - this.removedCards.cards.length)
+      : 4;
+    const cardsToRemove = Math.min(4, remainingSlots, this.cardSlot.cards.length);
     if (cardsToRemove > 0) {
-      // 将前四个卡片移到移出区域
-      // console.log("inside"+`Removing ${cardsToRemove} cards`);
       const removedCards = this.cardSlot.cards.splice(0, cardsToRemove);
       this.removedCards.cards = this.removedCards.cards.concat(removedCards);
-      
       // 更新移出卡片区域的位置和大小
       this.updateRemovedCardsLayout();
-      
       // 限制：移出区最多10张，超过立即判定失败
       if (this.removedCards.maxCards != null && this.removedCards.cards.length > this.removedCards.maxCards) {
         this.showGameFailure();
