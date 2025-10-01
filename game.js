@@ -214,8 +214,8 @@ class GuessIdiomGame {
       if (this.menu) {
         this.menu.width = this.width;
         this.menu.height = this.height;
-        this.menu.startButton.x = this.width / 2 - 100;
-        this.menu.startButton.y = this.height / 2 + 120;
+        this.menu.startButton.x = (this.width - this.menu.startButton.width) / 2;
+        this.menu.startButton.y = this.height * (3 / 4) - this.menu.startButton.height / 2;
       }
       
       // 如果当前是第一关，重新计算位置

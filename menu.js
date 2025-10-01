@@ -12,8 +12,8 @@ class Menu {
     
     // 开始游戏按钮
     this.startButton = {
-      x: this.width / 2 - 100,
-      y: this.height / 2 + 120,
+      x: (this.width - 200) / 2,
+      y: this.height * 0.8,
       width: 200,
       height: 60,
       text: '开始游戏',
@@ -125,8 +125,8 @@ class Menu {
       
        if (imageAspect > canvasAspect) {
          // 图片更宽，以高度为准
-         drawHeight = this.height * 1.07;
-         drawWidth = drawHeight * imageAspect;
+         drawHeight = this.height * 1;
+         drawWidth = drawHeight * 0.5;
          drawX = (this.width - drawWidth) / 2;
          drawY = (this.height - drawHeight) / 2;
        } else {
