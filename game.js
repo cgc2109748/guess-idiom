@@ -1,6 +1,7 @@
 // 引入Level1/Level2类
 const Level1 = require('./level1.js');
 const Level2 = require('./level2.js');
+const Level3 = require('./level3.js');
 const Menu = require('./menu.js');
 
 // 游戏状态枚举
@@ -9,6 +10,7 @@ const GameState = {
   MENU: 'menu',
   LEVEL1: 'level1',
   LEVEL2: 'level2',
+  LEVEL3: 'level3',
   SUCCESS: 'success'
 };
 
@@ -135,10 +137,19 @@ class GuessIdiomGame {
   }
   
   async initLevel2() {
-    // 创建第二关实例
-    this.currentLevel = new Level2(this);
-    await this.currentLevel.init();
+    // 创建第二关实例（先初始化完成后再赋值给 currentLevel，避免渲染时访问未初始化的数据结构）
+    const level = new Level2(this);
+    await level.init();
+    this.currentLevel = level;
     this.gameState = GameState.LEVEL2;
+  }
+  
+  async initLevel3() {
+    // 创建第三关实例（与第二关相同的安全赋值顺序）
+    const level = new Level3(this);
+    await level.init();
+    this.currentLevel = level;
+    this.gameState = GameState.LEVEL3;
   }
   
   async switchToLevel2() {
@@ -216,6 +227,10 @@ class GuessIdiomGame {
         this.menu.height = this.height;
         this.menu.startButton.x = (this.width - this.menu.startButton.width) / 2;
         this.menu.startButton.y = this.height * (3 / 4) - this.menu.startButton.height / 2;
+        // 根据比例重新定位关卡入口按钮
+        if (typeof this.menu.recomputeLevelButtonsOnResize === 'function') {
+          this.menu.recomputeLevelButtonsOnResize(this.width, this.height);
+        }
       }
       
       // 如果当前是第一关，重新计算位置

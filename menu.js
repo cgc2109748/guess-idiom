@@ -20,6 +20,11 @@ class Menu {
       hover: false
     };
     
+    // 关卡入口按钮（随机位置锚点）
+    this.levelButtons = [];
+    this.levelButtonsAnchor = null; // { x, y }
+    this.levelButtonsAnchorRatio = null; // { xRatio, yRatio }
+    
     // 游戏标题
     this.title = {
       text: '猜成语',
@@ -42,6 +47,8 @@ class Menu {
   async init() {
     // 加载背景图片
     await this.loadBackgroundImage();
+    // 初始化关卡入口按钮
+    this.initLevelButtons();
   }
   
   async loadBackgroundImage() {
@@ -89,11 +96,27 @@ class Menu {
         y >= this.startButton.y && y <= this.startButton.y + this.startButton.height) {
       console.log('点击了开始游戏按钮');
       this.startGame();
-    } else {
-      console.log('未点击到按钮');
-      console.log('X范围检查:', x >= this.startButton.x, x <= this.startButton.x + this.startButton.width);
-      console.log('Y范围检查:', y >= this.startButton.y, y <= this.startButton.y + this.startButton.height);
+      return;
     }
+    
+    // 检查是否点击了关卡入口按钮
+    for (const btn of this.levelButtons) {
+      if (x >= btn.x && x <= btn.x + btn.width && y >= btn.y && y <= btn.y + btn.height) {
+        console.log('点击了关卡入口按钮:', btn.id);
+        if (btn.id === 'level1') {
+          this.startGame();
+        } else if (btn.id === 'level2') {
+          this.startLevel2();
+        } else if (btn.id === 'level3') {
+          this.startLevel3();
+        }
+        return;
+      }
+    }
+    
+    console.log('未点击到按钮');
+    console.log('X范围检查:', x >= this.startButton.x, x <= this.startButton.x + this.startButton.width);
+    console.log('Y范围检查:', y >= this.startButton.y, y <= this.startButton.y + this.startButton.height);
   }
   
   async startGame() {
@@ -107,6 +130,28 @@ class Menu {
       console.log('游戏状态切换到:', this.game.gameState);
     } catch (error) {
       console.error('初始化第一关失败:', error);
+    }
+  }
+  
+  async startLevel2() {
+    console.log('开始第二关方法被调用');
+    try {
+      await this.game.initLevel2();
+      this.game.gameState = this.game.GameState.LEVEL2;
+      console.log('游戏状态切换到:', this.game.gameState);
+    } catch (error) {
+      console.error('初始化第二关失败:', error);
+    }
+  }
+  
+  async startLevel3() {
+    console.log('开始第三关方法被调用');
+    try {
+      await this.game.initLevel3();
+      this.game.gameState = this.game.GameState.LEVEL3;
+      console.log('游戏状态切换到:', this.game.gameState);
+    } catch (error) {
+      console.error('初始化第三关失败:', error);
     }
   }
   
@@ -149,20 +194,11 @@ class Menu {
     
     // 背景白色蒙版已移除
 
-    // 绘制游戏标题
-    // ctx.fillStyle = this.title.color;
-    // ctx.font = `bold ${this.title.fontSize}px Arial, "Microsoft YaHei", sans-serif`;
-    // ctx.textAlign = 'center';
-    // ctx.textBaseline = 'middle';
-    // ctx.fillText(this.title.text, this.title.x, this.title.y);
-    
-    // 绘制副标题
-    // ctx.fillStyle = this.subtitle.color;
-    // ctx.font = `${this.subtitle.fontSize}px Arial, "Microsoft YaHei", sans-serif`;
-    // ctx.fillText(this.subtitle.text, this.subtitle.x, this.subtitle.y);
-    
     // 绘制开始游戏按钮
     this.renderStartButton(ctx);
+    
+    // 绘制关卡入口按钮
+    this.renderLevelButtons(ctx);
   }
   
   renderStartButton(ctx) {
@@ -200,6 +236,84 @@ class Menu {
     ctx.lineWidth = 2;
     ctx.strokeRect(button.x, button.y, button.width, button.height);
   }
+  
+  // 渲染：关卡入口按钮
+  renderLevelButtons(ctx) {
+    if (!this.levelButtons || this.levelButtons.length === 0) return;
+    for (const btn of this.levelButtons) {
+      // 阴影
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillRect(btn.x + 2, btn.y + 2, btn.width, btn.height);
+      // 背景
+      const grad = ctx.createLinearGradient(btn.x, btn.y, btn.x, btn.y + btn.height);
+      grad.addColorStop(0, '#4ECEDA');
+      grad.addColorStop(1, '#45B7D1');
+      ctx.fillStyle = grad;
+      ctx.fillRect(btn.x, btn.y, btn.width, btn.height);
+      // 边框
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(btn.x, btn.y, btn.width, btn.height);
+      // 文本
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 18px Arial, "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(btn.text, btn.x + btn.width / 2, btn.y + btn.height / 2);
+    }
+  }
+  
+  // 初始化：关卡入口按钮（随机位置）
+  initLevelButtons() {
+    const btnWidth = 60;
+    const btnHeight = 40;
+    const spacing = 10;
+    const totalWidth = 3 * btnWidth + 2 * spacing;
+    
+    const minX = 20;
+    const maxX = Math.max(minX, this.width - totalWidth - 20);
+    const minY = 80;
+    const maxY = Math.max(minY, this.height * 0.6);
+    
+    const anchorX = Math.floor(minX + Math.random() * (maxX - minX));
+    const anchorY = Math.floor(minY + Math.random() * (maxY - minY));
+    this.levelButtonsAnchor = { x: anchorX, y: anchorY };
+    this.levelButtonsAnchorRatio = { xRatio: anchorX / this.width, yRatio: anchorY / this.height };
+    
+    this.levelButtons = [
+      { id: 'level1', text: '1', x: anchorX, y: anchorY, width: btnWidth, height: btnHeight },
+      { id: 'level2', text: '2', x: anchorX + (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+      { id: 'level3', text: '3', x: anchorX + 2 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+    ];
+  }
+  
+  // 响应窗口尺寸变化：根据比例重新定位关卡入口按钮
+  recomputeLevelButtonsOnResize(newWidth, newHeight) {
+    if (!this.levelButtonsAnchorRatio) return;
+    const btnWidth = this.levelButtons[0]?.width || 60;
+    const btnHeight = this.levelButtons[0]?.height || 40;
+    const spacing = 10;
+    const anchorX = Math.floor(this.levelButtonsAnchorRatio.xRatio * newWidth);
+    const anchorY = Math.floor(this.levelButtonsAnchorRatio.yRatio * newHeight);
+    this.levelButtonsAnchor = { x: anchorX, y: anchorY };
+    if (this.levelButtons && this.levelButtons.length === 3) {
+      this.levelButtons[0].x = anchorX; this.levelButtons[0].y = anchorY; this.levelButtons[0].width = btnWidth; this.levelButtons[0].height = btnHeight;
+      this.levelButtons[1].x = anchorX + (btnWidth + spacing); this.levelButtons[1].y = anchorY; this.levelButtons[1].width = btnWidth; this.levelButtons[1].height = btnHeight;
+      this.levelButtons[2].x = anchorX + 2 * (btnWidth + spacing); this.levelButtons[2].y = anchorY; this.levelButtons[2].width = btnWidth; this.levelButtons[2].height = btnHeight;
+    }
+  }
+  
+  // 绘制游戏标题
+  // ctx.fillStyle = this.title.color;
+  // ctx.font = `bold ${this.title.fontSize}px Arial, "Microsoft YaHei", sans-serif`;
+  // ctx.textAlign = 'center';
+  // ctx.textBaseline = 'middle';
+  // ctx.fillText(this.title.text, this.title.x, this.title.y);
+  
+  // 绘制副标题
+  // ctx.fillStyle = this.subtitle.color;
+  // ctx.font = `${this.subtitle.fontSize}px Arial, "Microsoft YaHei", sans-serif`;
+  // ctx.fillText(this.subtitle.text, this.subtitle.x, this.subtitle.y);
 }
 
 module.exports = Menu;

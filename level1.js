@@ -259,6 +259,16 @@ class Level1 {
     
     // 字符类型（基于成语字符）
     this.characterTypes = {};
+    const unifiedColor = '#4caf50';
+    
+    // 为每个成语字符创建统一颜色的类型
+    this.idiomCharacters.forEach((char) => {
+      this.characterTypes[char] = {
+        name: char,
+        color: unifiedColor,
+        icon: char
+      };
+    });
     const colors = ['#ff8c42', '#ffd700', '#4caf50', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57'];
     
     // 为每个成语字符创建类型
