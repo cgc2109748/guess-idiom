@@ -429,7 +429,7 @@ class Level2 {
   
   initButtons() {
     // 计算按钮布局 - 三个按钮居中排列
-    const buttonWidth = 80;
+    const buttonWidth = 110;
     const buttonHeight = 50;
     const buttonSpacing = 20;
     const totalWidth = 3 * buttonWidth + 2 * buttonSpacing;
@@ -1268,17 +1268,31 @@ class Level2 {
   renderButtons() {
     for (let button of this.buttons) {
       const isDisabled = !!button.disabled;
-      // 纯平样式：不绘制阴影、渐变和高光
+      // 纯平样式：不绘制阴影、渐变和高光；使用圆角10px
       const baseColor = isDisabled ? '#9e9e9e' : button.color;
       this.ctx.fillStyle = baseColor;
-      this.ctx.fillRect(button.x, button.y, button.width, button.height);
-      
-      // 按钮边框
+
+      // 圆角矩形路径
+      const r = 10;
+      this.ctx.beginPath();
+      this.ctx.moveTo(button.x + r, button.y);
+      this.ctx.lineTo(button.x + button.width - r, button.y);
+      this.ctx.quadraticCurveTo(button.x + button.width, button.y, button.x + button.width, button.y + r);
+      this.ctx.lineTo(button.x + button.width, button.y + button.height - r);
+      this.ctx.quadraticCurveTo(button.x + button.width, button.y + button.height, button.x + button.width - r, button.y + button.height);
+      this.ctx.lineTo(button.x + r, button.y + button.height);
+      this.ctx.quadraticCurveTo(button.x, button.y + button.height, button.x, button.y + button.height - r);
+      this.ctx.lineTo(button.x, button.y + r);
+      this.ctx.quadraticCurveTo(button.x, button.y, button.x + r, button.y);
+      this.ctx.closePath();
+      this.ctx.fill();
+
+      // 边框
       this.ctx.strokeStyle = '#ffffff';
       this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(button.x, button.y, button.width, button.height);
-      
-      // 按钮文字
+      this.ctx.stroke();
+
+      // 文本
       this.ctx.fillStyle = '#ffffff';
       this.ctx.font = 'bold 16px Arial';
       this.ctx.textAlign = 'center';
@@ -1287,7 +1301,7 @@ class Level2 {
         button.x + button.width / 2,
         button.y + button.height / 2 + 5
       );
-      
+
       // 右上角可点击次数 (剩余/总数)
       const lim = this.buttonUsageLimits && this.buttonUsageLimits[button.id];
       if (lim != null) {

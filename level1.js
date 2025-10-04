@@ -1450,74 +1450,70 @@ class Level1 {
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(this.cardSlot.x, this.cardSlot.y, this.cardSlot.width, this.cardSlot.height);
     
-    // 计算可用宽度和每个卡片位置的实际宽度
-    const availableWidth = this.cardSlot.width - 20; // 左右各留10px边距
-    const totalCardWidth = this.cardSlot.maxCards * this.cardSlot.cardWidth + (this.cardSlot.maxCards - 1) * this.cardSlot.cardSpacing;
+    // 计算动态卡片宽度与间距，使10个位置铺满整个卡槽可用宽度
+    const innerX = this.cardSlot.x + 10; // 左内边距
+    const innerW = this.cardSlot.width - 20; // 去除左右内边距后的可用宽度
+    const max = this.cardSlot.maxCards;
+    const baseW = this.cardSlot.cardWidth;
+    const minSpacing = 3; // 最小间距，避免卡片互相粘连
+    let actualW = baseW;
+    let actualSpacing = (innerW - max * actualW) / (max - 1);
+    if (actualSpacing < minSpacing) {
+      actualSpacing = minSpacing;
+      actualW = (innerW - (max - 1) * actualSpacing) / max;
+    }
+    // 统一卡片高度不变
+    const actualH = this.cardSlot.cardHeight;
+    const slotY = this.cardSlot.y + 5;
     
-    // 如果总宽度超出可用宽度，调整卡片间距
-    let actualCardSpacing = this.cardSlot.cardSpacing;
-    if (totalCardWidth > availableWidth) {
-      actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
+    // 绘制卡槽位置指示（占位）
+    for (let i = 0; i < max; i++) {
+      const x = innerX + i * (actualW + actualSpacing);
+      const y = slotY;
+      // 占位背景：已放置用淡绿，未放置用灰
+      this.ctx.fillStyle = i < this.cardSlot.cards.length ? '#e8f5e8' : '#f0f0f0';
+      this.ctx.fillRect(x, y, actualW, actualH);
+      // 占位边框
+      this.ctx.strokeStyle = '#cccccc';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(x, y, actualW, actualH);
     }
     
-    // 绘制卡槽位置指示
-    for (let i = 0; i < this.cardSlot.maxCards; i++) {
-      const x = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
-      const y = this.cardSlot.y + 5;
-      
-      // 确保不超出卡槽边界
-      if (x + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
-        // 绘制卡槽位置背景
-        this.ctx.fillStyle = i < this.cardSlot.cards.length ? '#e8f5e8' : '#f0f0f0';
-        this.ctx.fillRect(x, y, this.cardSlot.cardWidth, this.cardSlot.cardHeight);
-        
-        // 绘制卡槽位置边框
-        this.ctx.strokeStyle = '#cccccc';
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(x, y, this.cardSlot.cardWidth, this.cardSlot.cardHeight);
-      }
-    }
-    
-    // 绘制卡槽中的卡片（加入完成动画：白边高亮 + 轻微放大）
+    // 绘制卡槽中的卡片（完成动画：白边高亮 + 轻微放大）
     for (let i = 0; i < this.cardSlot.cards.length; i++) {
       const card = this.cardSlot.cards[i];
       const character = this.characterTypes[card.characterType];
+      if (!character) continue;
       
-      if (character) {
-        const x = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
-        const y = this.cardSlot.y + 5;
-        
-        const isAnimating = this.cardCompletionAnimation && this.cardCompletionAnimation.indices && this.cardCompletionAnimation.indices.includes(i);
-        const scale = isAnimating ? 1 + 0.20 * (this.cardCompletionAnimation.progress || 0) : 1;
-        const scaledW = this.cardSlot.cardWidth * scale;
-        const scaledH = this.cardSlot.cardHeight * scale;
-        const sx = x + (this.cardSlot.cardWidth - scaledW) / 2;
-        const sy = y + (this.cardSlot.cardHeight - scaledH) / 2;
-        
-        // 确保卡片不超出卡槽边界
-        if (x + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
-          // 绘制卡片背景
-          this.ctx.fillStyle = character.color;
-          this.ctx.fillRect(sx + 1, sy + 1, scaledW - 2, scaledH - 2);
-          
-          // 高亮白边（在动画中）
-          if (isAnimating) {
-            this.ctx.strokeStyle = 'rgba(237, 71, 71, 0.8)';
-            this.ctx.lineWidth = 3;
-            this.ctx.strokeRect(sx, sy, scaledW, scaledH);
-          }
-          
-          // 绘制卡片图标
-          this.ctx.fillStyle = '#000000';
-          this.ctx.font = 'bold 16px Arial';
-          this.ctx.textAlign = 'center';
-          this.ctx.fillText(
-            character.icon,
-            sx + scaledW / 2,
-            sy + scaledH / 2 + 5
-          );
-        }
+      const x = innerX + i * (actualW + actualSpacing);
+      const y = slotY;
+      const isAnimating = this.cardCompletionAnimation && this.cardCompletionAnimation.indices && this.cardCompletionAnimation.indices.includes(i);
+      const scale = isAnimating ? 1 + 0.20 * (this.cardCompletionAnimation.progress || 0) : 1;
+      const scaledW = actualW * scale;
+      const scaledH = actualH * scale;
+      const sx = x + (actualW - scaledW) / 2;
+      const sy = y + (actualH - scaledH) / 2;
+      
+      // 卡片背景
+      this.ctx.fillStyle = character.color;
+      this.ctx.fillRect(sx + 1, sy + 1, scaledW - 2, scaledH - 2);
+      
+      // 高亮白边（在动画中）
+      if (isAnimating) {
+        this.ctx.strokeStyle = 'rgba(237, 71, 71, 0.8)';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(sx, sy, scaledW, scaledH);
       }
+      
+      // 卡片图标
+      this.ctx.fillStyle = '#000000';
+      this.ctx.font = 'bold 16px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(
+        character.icon,
+        sx + scaledW / 2,
+        sy + scaledH / 2 + 5
+      );
     }
     
     // 绘制卡槽标题
