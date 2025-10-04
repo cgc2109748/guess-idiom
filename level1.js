@@ -782,28 +782,59 @@ class Level1 {
     const button = this.buttons.find(b => b.id === buttonId);
     if (!button) return;
 
-    // 使用次数限制判定（第一关每个按钮1次）
+    // 若按钮已禁用，直接不响应
+    if (button.disabled) return;
+
+    // 先判断是否可执行（不符合条件不扣减机会，提示“目前没有可执行目标”）
+    let canExecute = true;
+    if (buttonId === 'remove' || buttonId === 'undo') {
+      // 卡槽中有卡片即可执行
+      canExecute = this.cardSlot && Array.isArray(this.cardSlot.cards) && this.cardSlot.cards.length > 0;
+    } else if (buttonId === 'shuffle') {
+      // 主棋盘剩余可见卡片（status === 0）> 0 才可执行
+      const availableCount = (this.allBlocks || []).filter(block => block.status === 0).length;
+      canExecute = availableCount > 0;
+    }
+
+    if (!canExecute) {
+      if (this.game && typeof this.game.showModalDialog === 'function') {
+        console.log('无法执行此操作')
+      }
+      return;
+    }
+
+    // 使用次数限制判定（第一关每个按钮1次），仅在可执行时才进行扣减
     const limit = this.buttonUsageLimits[buttonId];
     if (limit != null) {
       const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
       if (remaining <= 0) {
         // 已用尽，提示
         if (this.game && typeof this.game.showModalDialog === 'function') {
-          this.game.showModalDialog('提示', '使用机会已经没有了', [
-            { text: '知道了' }
-          ]);
+          console.log('已用尽按钮机会')
         }
         return;
       }
-      // 消耗一次机会
+
+      // 执行动作
+      if (button.action) {
+        button.action();
+      }
+
+      // 扣减一次机会（执行成功后）
       this.buttonUsageRemaining[buttonId] = remaining - 1;
       if (this.buttonUsageRemaining[buttonId] <= 0) {
         button.disabled = true;
       }
-    }
 
-    if (button.action) {
-      button.action();
+      // 提示已扣减机会
+      if (this.game && typeof this.game.showModalDialog === 'function') {
+        console.log('已扣减一次机会')
+      }
+    } else {
+      // 无次数限制的按钮，直接执行
+      if (button.action) {
+        button.action();
+      }
     }
   }
   
@@ -942,7 +973,7 @@ class Level1 {
       // console.log('通关条件满足，显示通关弹窗');
       this.game.showModalDialog(
         '恭喜过关',
-        '您已成功完成所有成语！',
+        '您已成功消除所有成语！',
         [
           {
             text: '下一关',
@@ -1005,7 +1036,7 @@ class Level1 {
   showGameFailure() {
     this.game.showModalDialog(
       '游戏失败',
-      '卡槽已满且没有可消除的成语！',
+      '卡槽已满，下次努力！',
       [
         {
           text: '再试一次',

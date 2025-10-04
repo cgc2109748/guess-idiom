@@ -125,11 +125,78 @@ class Level3 {
   }
 
   shuffleArray(array) {
-    if (this.difficultyLevel === 1) return;
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
+    // 按难度等级系数进行重新排列：
+    // 1: 不打乱；2-9：渐进式打乱；10：分组打乱并轻微打散组顺序
+    if (!Array.isArray(array) || array.length <= 1) return array;
+    if (this.difficultyLevel === 1) {
+      return array;
     }
+
+    if (this.difficultyLevel >= 10) {
+      const shuffled = this.shuffleWithGrouping(array.slice());
+      // 原地更新，保持调用方传入数组引用不变
+      array.splice(0, array.length, ...shuffled);
+      return array;
+    }
+
+    const shuffleIntensity = (this.difficultyLevel - 1) / 9; // 转换为0-1比例
+    const shuffled = this.gradualShuffle(array.slice(), shuffleIntensity);
+    array.splice(0, array.length, ...shuffled);
+    return array;
+  }
+
+  gradualShuffle(array, intensity) {
+    // 渐进式打乱：根据强度决定交换次数
+    const result = array.slice();
+    const n = result.length;
+    const swaps = Math.max(1, Math.floor(n * intensity));
+    for (let s = 0; s < swaps; s++) {
+      const i = Math.floor(Math.random() * n);
+      const j = Math.floor(Math.random() * n);
+      if (i !== j) {
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+    }
+    return result;
+  }
+
+  shuffleWithGrouping(array) {
+    // 分组打乱：按4字成语分组，保留约一半组的相对完整，其他组内部打乱，并轻微打乱组顺序
+    const groupSize = 4;
+    const groups = [];
+    for (let i = 0; i < array.length; i += groupSize) {
+      groups.push(array.slice(i, i + groupSize));
+    }
+
+    const totalGroups = groups.length;
+    if (totalGroups <= 1) return array.slice();
+
+    const keepCount = Math.floor(totalGroups / 2);
+    const indices = [...groups.keys()];
+    // 随机选择需要保持完整的组
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    const keepSet = new Set(indices.slice(0, keepCount));
+
+    // 对未保持的组进行内部打乱
+    groups.forEach((g, idx) => {
+      if (!keepSet.has(idx)) {
+        for (let i = g.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [g[i], g[j]] = [g[j], g[i]];
+        }
+      }
+    });
+
+    // 轻微打乱组的顺序
+    for (let i = groups.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [groups[i], groups[j]] = [groups[j], groups[i]];
+    }
+
+    return groups.flat();
   }
 
   initLevel() {
@@ -422,11 +489,11 @@ class Level3 {
       return;
     }
   
-    // 检查卡槽中卡片点击
+    // 检查卡槽中卡片点击（禁用点击移出，必须通过“移出”按钮）
     const clickedSlotCard = this.getClickedSlotCard(x, y);
     if (clickedSlotCard !== -1) {
-      this.moveSlotCardToRemoved(clickedSlotCard);
-      return;
+      // 禁止通过点击卡槽中的卡片移出，必须点击“移出”按钮才会移动到移出卡槽区域
+      return; // 直接吞掉点击，不执行移动
     }
   
     // 检查网格点击
@@ -686,14 +753,31 @@ class Level3 {
     const button = this.buttons.find(b => b.id === buttonId);
     if (!button) return;
 
+    // 先判断是否可执行，不可执行则仅提示，不扣减机会
+    let executable = false;
+    if (buttonId === 'remove' || buttonId === 'undo') {
+      executable = this.cardSlot.cards && this.cardSlot.cards.length > 0;
+    } else if (buttonId === 'shuffle') {
+      const availableBlocks = this.allBlocks.filter(b => b.status === 0);
+      executable = availableBlocks.length > 0;
+    } else {
+      executable = true;
+    }
+
+    if (!executable) {
+      if (this.game && typeof this.game.showModalDialog === 'function') {
+        console.log('无法执行此操作')
+      }
+      return;
+    }
+
+    // 判断使用次数限制，仅在可执行时扣减
     const limit = this.buttonUsageLimits[buttonId];
     if (limit != null) {
       const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
       if (remaining <= 0) {
         if (this.game && typeof this.game.showModalDialog === 'function') {
-          this.game.showModalDialog('提示', '使用机会已经没有了', [
-            { text: '知道了' }
-          ]);
+          console.log('使用机会已经没有了')
         }
         return;
       }
@@ -792,7 +876,7 @@ class Level3 {
     if (this.selectedIdioms.length === 0 && !hasRemainingBlocks && this.cardSlot.cards.length === 0) {
       this.game.showModalDialog(
         '恭喜过关',
-        '您已成功完成所有成语！',
+        '您已成功消除所有成语！',
         [
           {
             text: '下一关',
@@ -839,7 +923,7 @@ class Level3 {
   showGameFailure() {
     this.game.showModalDialog(
       '游戏失败',
-      '没有可行的解决方案了！',
+      '卡槽已满，下次努力！',
       [
         {
           text: '重新开始',

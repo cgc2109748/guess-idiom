@@ -125,10 +125,69 @@ class Level2 {
   }
 
   shuffleArray(array) {
-    if (this.difficultyLevel === 1) return;
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
+    // 难度1：完全不打乱，按顺序排列
+    if (this.difficultyLevel === 1) {
+      return;
+    }
+
+    // 难度2-10：根据难度系数控制打乱程度
+    const shuffleIntensity = (this.difficultyLevel - 1) / 9; // 转换为0-1的比例
+
+    if (this.difficultyLevel === 10) {
+      // 难度10：打乱但保持一半成语卡片能挨着排列
+      this.shuffleWithGrouping(array);
+    } else {
+      // 难度2-9：渐进式打乱
+      this.gradualShuffle(array, shuffleIntensity);
+    }
+  }
+
+  // 渐进式打乱方法（按难度强度控制交换距离与次数）
+  gradualShuffle(array, intensity) {
+    const shuffleCount = Math.floor(array.length * intensity * 2);
+
+    for (let count = 0; count < shuffleCount; count++) {
+      for (let i = array.length - 1; i > 0; i--) {
+        // 根据强度调整交换范围，强度越低交换距离越近
+        const maxDistance = Math.max(1, Math.floor(i * intensity * 0.5));
+        const j = Math.max(0, i - maxDistance);
+        const randomJ = j + Math.floor(Math.random() * (maxDistance + 1));
+        [array[i], array[randomJ]] = [array[randomJ], array[i]];
+      }
+    }
+  }
+
+  // 分组打乱方法（难度10专用，按 4 字成语分组，保持一半组较完整）
+  shuffleWithGrouping(array) {
+    const groupSize = 4;
+    const idiomGroups = [];
+
+    for (let i = 0; i < array.length; i += groupSize) {
+      idiomGroups.push(array.slice(i, i + groupSize));
+    }
+
+    const keepIntactCount = Math.floor(idiomGroups.length / 2);
+    const intactGroups = idiomGroups.slice(0, keepIntactCount);
+    const shuffleGroups = idiomGroups.slice(keepIntactCount);
+
+    // 对需要打乱的组进行打乱
+    for (let group of shuffleGroups) {
+      for (let i = group.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [group[i], group[j]] = [group[j], group[i]];
+      }
+    }
+
+    // 重新组合数组
+    array.length = 0;
+    intactGroups.forEach(group => array.push(...group));
+    shuffleGroups.forEach(group => array.push(...group));
+
+    // 对整体进行轻微打乱，避免完全固定
+    for (let i = 0; i < 3; i++) {
+      const pos1 = Math.floor(Math.random() * array.length);
+      const pos2 = Math.floor(Math.random() * array.length);
+      [array[pos1], array[pos2]] = [array[pos2], array[pos1]];
     }
   }
 
@@ -429,11 +488,11 @@ class Level2 {
       return;
     }
   
-    // 检查卡槽中卡片点击
+    // 检查卡槽中卡片点击（禁用点击移出，必须通过“移出”按钮）
     const clickedSlotCard = this.getClickedSlotCard(x, y);
     if (clickedSlotCard !== -1) {
-      this.moveSlotCardToRemoved(clickedSlotCard);
-      return;
+      // 禁止通过点击卡槽中的卡片移出，必须点击“移出”按钮才会移动到移出卡槽区域
+      return; // 直接吞掉点击，不执行移动
     }
   
     // 检查网格点击
@@ -693,25 +752,61 @@ class Level2 {
     const button = this.buttons.find(b => b.id === buttonId);
     if (!button) return;
 
+    // 若按钮已禁用，直接不响应
+    if (button.disabled) return;
+
+    // 先判断是否可执行（不符合条件不扣减机会，提示“目前没有可执行目标”）
+    let canExecute = true;
+    if (buttonId === 'remove' || buttonId === 'undo') {
+      // 第二关：卡槽中有卡片即可执行
+      canExecute = this.cardSlot && Array.isArray(this.cardSlot.cards) && this.cardSlot.cards.length > 0;
+    } else if (buttonId === 'shuffle') {
+      // 主棋盘剩余可见卡片（status === 0）> 0 才可执行
+      const availableCount = (this.allBlocks || []).filter(block => block.status === 0).length;
+      canExecute = availableCount > 0;
+    }
+
+    if (!canExecute) {
+      if (this.game && typeof this.game.showModalDialog === 'function') {
+        console.log('无法执行此操作')
+      }
+      return;
+    }
+
+    // 使用次数限制判定，仅在可执行时才进行扣减
     const limit = this.buttonUsageLimits[buttonId];
     if (limit != null) {
       const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
       if (remaining <= 0) {
         if (this.game && typeof this.game.showModalDialog === 'function') {
-          this.game.showModalDialog('提示', '使用机会已经没有了', [
-            { text: '知道了' }
-          ]);
+          console.log('使用次数已用完')
         }
         return;
       }
+
+      // 执行动作
+      if (button.action) {
+        button.action();
+      }
+
+      // 扣减一次机会（执行成功后）
       this.buttonUsageRemaining[buttonId] = remaining - 1;
       if (this.buttonUsageRemaining[buttonId] <= 0) {
         button.disabled = true;
       }
-    }
 
-    if (button.action) {
-      button.action();
+      // 提示已扣减一次机会
+      if (this.game && typeof this.game.showModalDialog === 'function') {
+        // this.game.showModalDialog('提示', '已扣减一次机会', [
+        //   { text: '知道了' }
+        // ]);
+        console.log('已扣减一次机会')
+      }
+    } else {
+      // 无次数限制的按钮，直接执行
+      if (button.action) {
+        button.action();
+      }
     }
   }
 
@@ -799,7 +894,7 @@ class Level2 {
     if (this.selectedIdioms.length === 0 && !hasRemainingBlocks && this.cardSlot.cards.length === 0) {
       this.game.showModalDialog(
         '恭喜过关',
-        '您已成功完成所有成语！',
+        '您已成功消除所有成语！',
         [
           {
             text: '下一关',
@@ -846,7 +941,7 @@ class Level2 {
   showGameFailure() {
     this.game.showModalDialog(
       '游戏失败',
-      '没有可行的解决方案了！',
+      '卡槽已满，下次努力！',
       [
         {
           text: '重新开始',
