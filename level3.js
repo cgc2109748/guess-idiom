@@ -285,7 +285,7 @@ class Level3 {
 
     // 使布局居中，向下留出顶部标题区域
     this.gridStartX = (this.width - totalWidth) / 2;
-    this.gridStartY = 120 - this.cellSize / 3;
+    this.gridStartY = 125 - this.cellSize / 3;
 
     // 底层边界（像素范围），用于后续各层位置的限制
     this.bottomBounds = {
@@ -337,12 +337,12 @@ class Level3 {
   }
 
   initButtons() {
-    const buttonWidth = 80;
-    const buttonHeight = 50;
-    const buttonSpacing = 20;
+    const buttonWidth = 100;
+    const buttonHeight = 56;
+    const buttonSpacing = 24;
     const totalWidth = 3 * buttonWidth + 2 * buttonSpacing;
     const startX = (this.width - totalWidth) / 2;
-    const buttonY = this.height - 120;
+    const buttonY = this.height - 110;
     
     this.buttons = [
       {
@@ -379,7 +379,7 @@ class Level3 {
         action: () => this.shuffleBlocks()
       }
     ];
-  }
+}
 
   handleTouch(x, y) {
     if (this.game && this.game.modalConfig && this.game.modalConfig.show) {
@@ -975,17 +975,17 @@ class Level3 {
     }
 
     // 标题与关卡信息（改为白色）
-    context.fillStyle = '#ffffff';
+    context.fillStyle = '#333333';
     context.font = 'bold 24px Arial';
     context.textAlign = 'center';
     context.fillText('拼来凑去', this.width / 2, 55);
 
-    context.fillStyle = '#ffffff';
+    context.fillStyle = '#666666';
     context.font = '16px Arial';
     context.fillText('第3关', this.width / 2, 85);
 
     const remainingBlocks = this.allBlocks.filter(block => block.status === 0).length;
-    context.fillStyle = '#ffffff';
+    context.fillStyle = '#4caf50';
     context.font = 'bold 16px Arial';
     context.textAlign = 'center';
     context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 105);
@@ -1085,7 +1085,7 @@ class Level3 {
     // 字符图标
     const textLineWidth = isClickable ? 2 : 1;
     this.ctx.lineWidth = textLineWidth;
-    this.ctx.font = 'normal 18px Arial';
+    this.ctx.font = 'normal 16px Arial';
     this.ctx.textAlign = 'center';
     // 不可点击：不描边，文字颜色为 #FFFFF0；可点击：保留白描边并使用黑色文字
     this.ctx.fillStyle = isClickable ? '#000000' : '#FFFFF0';
@@ -1112,29 +1112,54 @@ class Level3 {
   }
 
   renderButtons() {
+    const roundRect = (ctx, x, y, w, h, r) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    };
+
     for (let button of this.buttons) {
-      const isDisabled = button.disabled || (this.buttonUsageRemaining[button.id] != null && this.buttonUsageRemaining[button.id] <= 0);
-      
+      const limit = this.buttonUsageLimits && this.buttonUsageLimits[button.id];
+      const remaining = (this.buttonUsageRemaining && this.buttonUsageRemaining[button.id] != null)
+        ? this.buttonUsageRemaining[button.id]
+        : limit;
+      const isDisabled = button.disabled || (remaining != null && remaining <= 0);
+
+      const x = button.x, y = button.y, w = button.width, h = button.height;
+      const radius = 8;
+
+      // 平面填充：无阴影、无渐变、无高光条
+      const baseColor = isDisabled ? '#bdbdbd' : button.color;
       this.ctx.save();
-      this.ctx.fillStyle = isDisabled ? '#cccccc' : button.color;
-      this.ctx.fillRect(button.x, button.y, button.width, button.height);
-      
-      this.ctx.strokeStyle = '#333333';
+      this.ctx.fillStyle = baseColor;
+      roundRect(this.ctx, x, y, w, h, radius);
+      this.ctx.fill();
+
+      // 简单描边
       this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(button.x, button.y, button.width, button.height);
-      
-      this.ctx.fillStyle = isDisabled ? '#888888' : '#ffffff';
-      this.ctx.font = 'bold 14px Arial';
+      this.ctx.strokeStyle = isDisabled ? '#9e9e9e' : '#ffffff';
+      roundRect(this.ctx, x, y, w, h, radius);
+      this.ctx.stroke();
+
+      // 文字（居中）
+      this.ctx.fillStyle = isDisabled ? '#eeeeee' : '#ffffff';
+      this.ctx.font = 'normal 16px Arial';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText(button.text, button.x + button.width / 2, button.y + button.height / 2 + 5);
-      
-      const remaining = this.buttonUsageRemaining[button.id];
-      if (remaining != null) {
+      this.ctx.fillText(button.text, x + w / 2, y + h / 2 + 6);
+
+      // 右上角使用次数 (remaining/limit)
+      if (limit != null) {
         this.ctx.font = '12px Arial';
-        this.ctx.fillStyle = isDisabled ? '#666666' : '#ffff00';
-        this.ctx.fillText(`剩余: ${remaining}`, button.x + button.width / 2, button.y + button.height - 8);
+        this.ctx.textAlign = 'right';
+        this.ctx.fillStyle = isDisabled ? '#f0f0f0' : '#ffffff';
+        const showRemain = remaining != null ? remaining : limit;
+        this.ctx.fillText(`(${showRemain}/${limit})`, x + w - 6, y + 16);
       }
-      
+
       this.ctx.restore();
     }
   }
@@ -1149,26 +1174,64 @@ class Level3 {
 
   renderCardSlot() {
     this.ctx.save();
-    this.ctx.fillStyle = '#f0f0f0';
-    this.ctx.fillRect(this.cardSlot.x, this.cardSlot.y, this.cardSlot.width, this.cardSlot.height);
-    
-    this.ctx.strokeStyle = '#333333';
-    this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(this.cardSlot.x, this.cardSlot.y, this.cardSlot.width, this.cardSlot.height);
-    
-    const availableWidth = this.cardSlot.width - 20;
+
+    // 容器：浅色背景 + 棕色边框，圆角
+    const x = this.cardSlot.x;
+    const y = this.cardSlot.y;
+    const w = this.cardSlot.width;
+    const h = this.cardSlot.height;
+    const radius = 10;
+
+    const roundRect = (ctx, rx, ry, rw, rh, r) => {
+      ctx.beginPath();
+      ctx.moveTo(rx + r, ry);
+      ctx.arcTo(rx + rw, ry, rx + rw, ry + rh, r);
+      ctx.arcTo(rx + rw, ry + rh, rx, ry + rh, r);
+      ctx.arcTo(rx, ry + rh, rx, ry, r);
+      ctx.arcTo(rx, ry, rx + rw, ry, r);
+      ctx.closePath();
+    };
+
+    // 背景与边框
+    this.ctx.fillStyle = '#fafafa';
+    roundRect(this.ctx, x, y, w, h, radius);
+    this.ctx.fill();
+
+    this.ctx.lineWidth = 3;
+    this.ctx.strokeStyle = '#8b4513';
+    roundRect(this.ctx, x, y, w, h, radius);
+    this.ctx.stroke();
+
+    // 左上角标题（左对齐）
+    this.ctx.fillStyle = '#333333';
+    this.ctx.font = '14px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(`卡槽 (${this.cardSlot.cards.length}/${this.cardSlot.maxCards})`, x, y - 10);
+
+    // 计算插槽位置（空位也画占位）
+    const availableWidth = w - 20;
     const totalCardWidth = this.cardSlot.maxCards * this.cardSlot.cardWidth + (this.cardSlot.maxCards - 1) * this.cardSlot.cardSpacing;
     let actualCardSpacing = this.cardSlot.cardSpacing;
     if (totalCardWidth > availableWidth) {
       actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
     }
-    
-    for (let i = 0; i < this.cardSlot.cards.length; i++) {
+
+    for (let i = 0; i < this.cardSlot.maxCards; i++) {
+      const cardX = x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
+      const cardY = y + 5; // 点击命中区域与渲染对齐
+
+      // 占位底卡（浅灰）
+      this.ctx.save();
+      this.ctx.fillStyle = '#e6e6e6';
+      this.ctx.fillRect(cardX, cardY, this.cardSlot.cardWidth, this.cardSlot.cardHeight);
+      this.ctx.strokeStyle = '#d0d0d0';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(cardX, cardY, this.cardSlot.cardWidth, this.cardSlot.cardHeight);
+      this.ctx.restore();
+
+      // 真实卡片（覆盖在占位之上）
       const card = this.cardSlot.cards[i];
-      const cardX = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
-      const cardY = this.cardSlot.y + 5;
-      
-      if (cardX + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
+      if (card) {
         let shouldAnimate = false;
         let animScale = 1;
         if (this.cardCompletionAnimation && this.cardCompletionAnimation.indices.includes(i)) {
@@ -1176,42 +1239,31 @@ class Level3 {
           const pulseStrength = 0.2;
           animScale = 1 + pulseStrength * Math.sin(this.cardCompletionAnimation.progress * Math.PI);
         }
-        
+
         const drawWidth = this.cardSlot.cardWidth * animScale;
         const drawHeight = this.cardSlot.cardHeight * animScale;
         const drawX = cardX + (this.cardSlot.cardWidth - drawWidth) / 2;
         const drawY = cardY + (this.cardSlot.cardHeight - drawHeight) / 2;
-        
+
         this.ctx.save();
-        
         if (shouldAnimate) {
           this.ctx.strokeStyle = '#ff6b6b';
           this.ctx.lineWidth = 3;
           this.ctx.strokeRect(drawX - 2, drawY - 2, drawWidth + 4, drawHeight + 4);
         }
-        
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
-        
         this.ctx.strokeStyle = '#333333';
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
-        
         this.ctx.fillStyle = '#000000';
         this.ctx.font = 'bold 16px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(card.characterType, drawX + drawWidth / 2, drawY + drawHeight / 2 + 6);
-        
         this.ctx.restore();
       }
     }
-    
-    this.ctx.fillStyle = '#666666';
-    this.ctx.font = '12px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(`卡槽 (${this.cardSlot.cards.length}/${this.cardSlot.maxCards})`, 
-                      this.cardSlot.x + this.cardSlot.width / 2, this.cardSlot.y - 5);
-    
+
     this.ctx.restore();
   }
 

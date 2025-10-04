@@ -1145,7 +1145,7 @@ class Level2 {
     // 绘制剩余卡片数量（在关卡下方）
     const remainingBlocks = this.allBlocks.filter(block => block.status === 0).length;
     context.fillStyle = '#4caf50';
-    context.font = 'bold 16px Arial';
+    context.font = 'normal 16px Arial';
     context.textAlign = 'center';
     context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 105);
     
@@ -1268,24 +1268,17 @@ class Level2 {
   renderButtons() {
     for (let button of this.buttons) {
       const isDisabled = !!button.disabled;
-      // 绘制按钮阴影
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-      this.ctx.fillRect(button.x + 3, button.y + 3, button.width, button.height);
-      
-      // 绘制按钮背景（渐变效果）
+      // 纯平样式：不绘制阴影、渐变和高光
       const baseColor = isDisabled ? '#9e9e9e' : button.color;
-      const gradient = this.ctx.createLinearGradient(button.x, button.y, button.x, button.y + button.height);
-      gradient.addColorStop(0, baseColor);
-      gradient.addColorStop(1, this.darkenColor(baseColor, 0.2));
-      this.ctx.fillStyle = gradient;
+      this.ctx.fillStyle = baseColor;
       this.ctx.fillRect(button.x, button.y, button.width, button.height);
       
-      // 绘制按钮边框
+      // 按钮边框
       this.ctx.strokeStyle = '#ffffff';
       this.ctx.lineWidth = 2;
       this.ctx.strokeRect(button.x, button.y, button.width, button.height);
       
-      // 绘制按钮文字
+      // 按钮文字
       this.ctx.fillStyle = '#ffffff';
       this.ctx.font = 'bold 16px Arial';
       this.ctx.textAlign = 'center';
@@ -1294,8 +1287,8 @@ class Level2 {
         button.x + button.width / 2,
         button.y + button.height / 2 + 5
       );
-
-      // 绘制右上角可点击次数 (剩余/总数)
+      
+      // 右上角可点击次数 (剩余/总数)
       const lim = this.buttonUsageLimits && this.buttonUsageLimits[button.id];
       if (lim != null) {
         const rem = (this.buttonUsageRemaining && this.buttonUsageRemaining[button.id] != null)
