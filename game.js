@@ -2,6 +2,7 @@
 const Level1 = require('./level1.js');
 const Level2 = require('./level2.js');
 const Level3 = require('./level3.js');
+const Level4 = require('./level4.js');
 const Menu = require('./menu.js');
 
 // 游戏状态枚举
@@ -11,6 +12,7 @@ const GameState = {
   LEVEL1: 'level1',
   LEVEL2: 'level2',
   LEVEL3: 'level3',
+  LEVEL4: 'level4',
   SUCCESS: 'success'
 };
 
@@ -150,6 +152,14 @@ class GuessIdiomGame {
     await level.init();
     this.currentLevel = level;
     this.gameState = GameState.LEVEL3;
+  }
+  
+  async initLevel4() {
+    // 创建第四关实例，沿用安全赋值顺序
+    const level = new Level4(this);
+    await level.init();
+    this.currentLevel = level;
+    this.gameState = GameState.LEVEL4;
   }
   
   async switchToLevel2() {

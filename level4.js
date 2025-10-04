@@ -1,6 +1,6 @@
 const idioms = require('./data.js');
 
-class Level3 {
+class Level4 {
   constructor(game) {
     this.game = game;
     this.ctx = game.ctx;
@@ -25,16 +25,16 @@ class Level3 {
     this.blockData = {};
     
     // 标识第三关
-    this.levelName = 'level3';
+    this.levelName = 'level4';
     // 金字塔层数（用于阴影与明暗计算）
-    this.maxPyramidLayers = 7;
+    this.maxPyramidLayers = 4;
     
     // 每一层的颜色（层级区分用）
     this.layerColors = [
-      '#FFCDD2', // L1 轻粉
-      '#F8BBD0', // L2 轻粉紫
-      '#E1BEE7', // L3 轻紫
-      '#D1C4E9', // L4 轻淡紫
+      // '#FFCDD2', // L1 轻粉
+      // '#F8BBD0', // L2 轻粉紫
+      // '#E1BEE7', // L3 轻紫
+      // '#D1C4E9', // L4 轻淡紫
       '#BBDEFB', // L5 轻蓝
       '#B2EBF2', // L6 轻青
       '#B2DFDB', // L7 轻绿青
@@ -77,18 +77,18 @@ class Level3 {
       if (typeof wx !== 'undefined' && wx.request) {
         data = await new Promise((resolve, reject) => {
           wx.request({
-            url: './data.json',
+            url: './data.js',
             success: (res) => resolve(res.data),
             fail: (res) => reject(res)
           });
         });
       } else {
-        const response = await fetch('./data.json');
+        const response = await fetch('./data.js');
         data = await response.json();
       }
       this.idiomsData = data.idioms || [];
       this.selectedIdioms = [];
-      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 71);
+      const randomIndices = this.generateRandomIndices(this.idiomsData.length, 14);
       for (const index of randomIndices) {
         this.selectedIdioms.push(this.idiomsData[index]);
       }
@@ -101,7 +101,7 @@ class Level3 {
       this.shuffleArray(this.idiomCharacters);
     } catch (error) {
       this.selectedIdioms = [];
-      const randomIndices = this.generateRandomIndices(idioms.length, 71);
+      const randomIndices = this.generateRandomIndices(idioms.length, 14);
       for (const index of randomIndices) {
         this.selectedIdioms.push(idioms[index]);
       }
@@ -188,15 +188,15 @@ class Level3 {
     this.pyramidPositions = [];
     this.layerShiftCells = {}; // 每层的居中偏移（以格子为单位，支持 0.5 居中）
 
-    const baseRows = 9;
-    const baseCols = 9;
+    const baseRows = 5;
+    const baseCols = 5;
 
     let rows = baseRows; // 底层行数
     let cols = baseCols; // 底层列数
 
     let L = 1;
     while (rows > 0 && cols > 0) {
-      // 绝对居中偏移：相对于底层 9×9 的中心
+      // 绝对居中偏移：相对于底层 5×5 的中心
       const centerRow = (baseRows - rows) / 2;
       const centerCol = (baseCols - cols) / 2;
       const rowOffset = Math.floor(centerRow);
@@ -209,11 +209,15 @@ class Level3 {
 
       for (let y = rowOffset; y < rowOffset + rows; y++) {
         for (let x = colOffset; x < colOffset + cols; x++) {
-          // 按需求：去掉顶层的那一张卡片（即 1×1 层不放置卡片）
-          if (rows === 1 && cols === 1) {
-            continue;
-          }
           this.pyramidPositions.push({ x, y, layer: L });
+          // 顶层增加一个卡片：在 1×1 层的右侧增加一格（确保不越界），总数从 55 -> 56
+          if (rows === 1 && cols === 1) {
+            const extraX = Math.min(baseCols - 1, x + 1);
+            const extraY = y;
+            if (!(extraX === x && extraY === y)) {
+              this.pyramidPositions.push({ x: extraX, y: extraY, layer: L });
+            }
+          }
         }
       }
 
@@ -306,8 +310,8 @@ class Level3 {
     this.maxGridY = maxY;
     this.stepX = this.cellSize + this.gridSpacing;
     this.stepY = this.cellSize + this.gridSpacing;
-    this.matrixCols = this.maxGridX - this.minGridX + 1; // 预期=9
-    this.matrixRows = this.maxGridY - this.minGridY + 1; // 预期=9
+    this.matrixCols = this.maxGridX - this.minGridX + 1; // 预期=5
+    this.matrixRows = this.maxGridY - this.minGridY + 1; // 预期=5
 
     // 初始化网格单元格位置
     this.gridCells = [];
@@ -1261,7 +1265,7 @@ class Level3 {
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
         this.ctx.fillStyle = '#000000';
-        this.ctx.font = 'bold 16px Arial';
+        this.ctx.font = 'normal 16px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(card.characterType, drawX + drawWidth / 2, drawY + drawHeight / 2 + 6);
         this.ctx.restore();
@@ -1336,5 +1340,5 @@ renderMovingCard() {
   this.ctx.fillText(mc.card.characterType, drawX + drawW / 2, drawY + drawH / 2 + 6);
   this.ctx.restore();
 }
-} // end of Level3 class
-module.exports = Level3;
+} // end of Level4 class
+module.exports = Level4;

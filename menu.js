@@ -109,6 +109,8 @@ class Menu {
           this.startLevel2();
         } else if (btn.id === 'level3') {
           this.startLevel3();
+        } else if (btn.id === 'level4') {
+          this.startLevel4();
         }
         return;
       }
@@ -117,6 +119,17 @@ class Menu {
     console.log('未点击到按钮');
     console.log('X范围检查:', x >= this.startButton.x, x <= this.startButton.x + this.startButton.width);
     console.log('Y范围检查:', y >= this.startButton.y, y <= this.startButton.y + this.startButton.height);
+  }
+  
+  async startLevel4() {
+    console.log('开始第四关方法被调用');
+    try {
+      await this.game.initLevel4();
+      this.game.gameState = this.game.GameState.LEVEL4;
+      console.log('游戏状态切换到:', this.game.gameState);
+    } catch (error) {
+      console.error('初始化第四关失败:', error);
+    }
   }
   
   async startGame() {
@@ -268,7 +281,7 @@ class Menu {
     const btnWidth = 60;
     const btnHeight = 40;
     const spacing = 10;
-    const totalWidth = 3 * btnWidth + 2 * spacing;
+    const totalWidth = 4 * btnWidth + 3 * spacing;
     
     const minX = 20;
     const maxX = Math.max(minX, this.width - totalWidth - 20);
@@ -284,6 +297,7 @@ class Menu {
       { id: 'level1', text: '1', x: anchorX, y: anchorY, width: btnWidth, height: btnHeight },
       { id: 'level2', text: '2', x: anchorX + (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
       { id: 'level3', text: '3', x: anchorX + 2 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+      { id: 'level4', text: '4', x: anchorX + 3 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
     ];
   }
   
@@ -296,10 +310,13 @@ class Menu {
     const anchorX = Math.floor(this.levelButtonsAnchorRatio.xRatio * newWidth);
     const anchorY = Math.floor(this.levelButtonsAnchorRatio.yRatio * newHeight);
     this.levelButtonsAnchor = { x: anchorX, y: anchorY };
-    if (this.levelButtons && this.levelButtons.length === 3) {
-      this.levelButtons[0].x = anchorX; this.levelButtons[0].y = anchorY; this.levelButtons[0].width = btnWidth; this.levelButtons[0].height = btnHeight;
-      this.levelButtons[1].x = anchorX + (btnWidth + spacing); this.levelButtons[1].y = anchorY; this.levelButtons[1].width = btnWidth; this.levelButtons[1].height = btnHeight;
-      this.levelButtons[2].x = anchorX + 2 * (btnWidth + spacing); this.levelButtons[2].y = anchorY; this.levelButtons[2].width = btnWidth; this.levelButtons[2].height = btnHeight;
+    if (Array.isArray(this.levelButtons) && this.levelButtons.length > 0) {
+      this.levelButtons.forEach((btn, idx) => {
+        btn.x = anchorX + idx * (btnWidth + spacing);
+        btn.y = anchorY;
+        btn.width = btnWidth;
+        btn.height = btnHeight;
+      });
     }
   }
   
