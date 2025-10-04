@@ -294,10 +294,10 @@ class Menu {
     this.levelButtonsAnchorRatio = { xRatio: anchorX / this.width, yRatio: anchorY / this.height };
     
     this.levelButtons = [
-      { id: 'level1', text: '1', x: anchorX, y: anchorY, width: btnWidth, height: btnHeight },
-      { id: 'level2', text: '2', x: anchorX + (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
-      { id: 'level3', text: '3', x: anchorX + 2 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
-      { id: 'level4', text: '4', x: anchorX + 3 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+      // { id: 'level1', text: '1', x: anchorX, y: anchorY, width: btnWidth, height: btnHeight },
+      // { id: 'level2', text: '2', x: anchorX + (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+      // { id: 'level3', text: '3', x: anchorX + 2 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+      // { id: 'level4', text: '4', x: anchorX + 3 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
     ];
   }
   

@@ -1318,7 +1318,7 @@ class Level1 {
     this.ctx.strokeRect(layerX, layerY, layerW, layerH);
     
     // 绘制字符背景色
-    this.ctx.fillStyle = isClickable ? character.color : '#cccccc';
+    this.ctx.fillStyle = '#96ceb4';
     this.ctx.fillRect(layerX + 3, layerY + 3, layerW - 6, layerH - 6);
     
     // 绘制字符图标（固定字号）
@@ -1495,7 +1495,7 @@ class Level1 {
       const sy = y + (actualH - scaledH) / 2;
       
       // 卡片背景
-      this.ctx.fillStyle = character.color;
+      this.ctx.fillStyle = '#ff8c42';
       this.ctx.fillRect(sx + 1, sy + 1, scaledW - 2, scaledH - 2);
       
       // 高亮白边（在动画中）
@@ -1567,7 +1567,7 @@ class Level1 {
       // 确保卡片不超出区域边界
       if (x + this.removedCards.cardWidth <= this.removedCards.x + this.removedCards.width - 10) {
         // 卡片背景
-        this.ctx.fillStyle = character && character.color ? character.color : '#dddddd';
+        this.ctx.fillStyle = '#ffd700';
         this.ctx.fillRect(x + 1, y + 1, this.removedCards.cardWidth - 2, this.removedCards.cardHeight - 2);
 
         // 卡片边框
@@ -1607,7 +1607,7 @@ class Level1 {
     this.ctx.fillRect(x + 2, y + 2, this.cardSlot.cardWidth, this.cardSlot.cardHeight);
     
     // 绘制移动中卡片背景
-    this.ctx.fillStyle = character.color;
+    this.ctx.fillStyle = '#96ceb4';
     this.ctx.fillRect(x, y, this.cardSlot.cardWidth, this.cardSlot.cardHeight);
     
     // 绘制移动中卡片边框

@@ -358,7 +358,7 @@ class Level3 {
         color: '#ff6b6b',
         icon: '🗑️',
         text: '移出',
-        action: () => this.removeLastCard()
+        action: () => this.removeFirstCardsFromSlot(4)
       },
       {
         id: 'undo',
@@ -732,6 +732,26 @@ class Level3 {
     }
   }
 
+  removeFirstCardsFromSlot(count) {
+    const remainingCapacity = (this.removedCards.maxCards != null)
+      ? Math.max(0, this.removedCards.maxCards - this.removedCards.cards.length)
+      : Number.POSITIVE_INFINITY;
+    const toRemove = Math.min(count, remainingCapacity, this.cardSlot.cards.length);
+    if (toRemove <= 0) return;
+
+    for (let i = 0; i < toRemove; i++) {
+      const card = this.cardSlot.cards.shift();
+      if (!card) break;
+      this.removedCards.cards.push(card);
+    }
+
+    this.updateRemovedCardsLayout();
+
+    if (this.removedCards.maxCards != null && this.removedCards.cards.length > this.removedCards.maxCards) {
+      this.showGameFailure();
+    }
+  }
+
   updateRemovedCardsLayout() {
     // 动态调整移出卡片区域的高度
     const maxCardsPerRow = Math.floor((this.removedCards.width - 20) / (this.removedCards.cardWidth + this.removedCards.cardSpacing));
@@ -775,13 +795,9 @@ class Level3 {
         '您已成功完成所有成语！',
         [
           {
-            text: '返回菜单',
+            text: '下一关',
             callback: async () => {
-              if (this.game && this.game.GameState) {
-                this.game.gameState = this.game.GameState.MENU;
-              } else {
-                this.game.gameState = 'menu';
-              }
+              await this.game.initLevel4();
             }
           }
         ]
@@ -828,7 +844,7 @@ class Level3 {
         {
           text: '重新开始',
           callback: async () => {
-            await this.resetLevel();
+            await this.game.initLevel1();
           }
         },
         {
@@ -1255,7 +1271,7 @@ class Level3 {
           this.ctx.lineWidth = 3;
           this.ctx.strokeRect(drawX - 2, drawY - 2, drawWidth + 4, drawHeight + 4);
         }
-        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillStyle = '#ff8c42';
         this.ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
         this.ctx.strokeStyle = '#333333';
         this.ctx.lineWidth = 1;
@@ -1293,7 +1309,7 @@ class Level3 {
       const cardX = this.removedCards.x + 10 + col * (this.removedCards.cardWidth + this.removedCards.cardSpacing);
       const cardY = this.removedCards.y + 5 + row * (this.removedCards.cardHeight + 5);
       
-      this.ctx.fillStyle = '#ffffff';
+      this.ctx.fillStyle = '#ffd700';
       this.ctx.fillRect(cardX, cardY, this.removedCards.cardWidth, this.removedCards.cardHeight);
       
       this.ctx.strokeStyle = '#666666';
