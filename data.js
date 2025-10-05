@@ -17,7 +17,7 @@ const idioms = [
   {"idiom": "鱼米之乡"},
   {"idiom": "牛鬼蛇神"},
   {"idiom": "鸡毛蒜皮"},
-  {"idiom": "狗血喷头"},
+  {"idiom": "狗血淋头"},
   {"idiom": "青红皂白"},
   {"idiom": "灯红酒绿"},
   {"idiom": "面红耳赤"},
@@ -116,8 +116,8 @@ const idioms = [
   {"idiom": "越俎代庖"},
   {"idiom": "唇亡齿寒"},
   {"idiom": "投鼠忌器"},
-  {"idiom": "一叶知秋"}
-
+  {"idiom": "一叶知秋"},
+  {"idiom": "一生一世"}
 ];
 
 module.exports = idioms;

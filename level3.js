@@ -17,8 +17,8 @@ class Level3 {
     this.animationDuration = 500;
     this.cardCompletionAnimation = null;
     this.difficultyLevel = 1;
-    this.buttonUsageLimits = { remove: 3, undo: 3, shuffle: 3 };
-    this.buttonUsageRemaining = { remove: 3, undo: 3, shuffle: 3 };
+    this.buttonUsageLimits = { remove: 5, undo: 5, shuffle: 3 };
+    this.buttonUsageRemaining = { remove: 5, undo: 5, shuffle: 3 };
     this.bgImage = null;
     this.bgImageLoaded = false;
     this.allBlocks = [];
@@ -77,13 +77,13 @@ class Level3 {
       if (typeof wx !== 'undefined' && wx.request) {
         data = await new Promise((resolve, reject) => {
           wx.request({
-            url: './data.json',
+            url: './data.js',
             success: (res) => resolve(res.data),
             fail: (res) => reject(res)
           });
         });
       } else {
-        const response = await fetch('./data.json');
+        const response = await fetch('./data.js');
         data = await response.json();
       }
       this.idiomsData = data.idioms || [];
@@ -666,7 +666,11 @@ class Level3 {
     }
     
     if (this.cardSlot.cards.length >= this.cardSlot.maxCards) {
-      if (!this.hasCompletableIdiom()) {
+      if (this.hasCompletableIdiom()) {
+        // 卡槽已满但可组成成语：立即触发成语消除动画
+        this.checkIdiomCompletion();
+      } else {
+        // 卡槽已满且不可组成成语：直接判定失败
         this.showGameFailure();
       }
       return;
@@ -685,9 +689,20 @@ class Level3 {
     
     this.cardSlot.cards.push(card);
     this.updateBlockRelations(block);
+    // 卡槽内容变化后，立即检测是否组成成语并触发消除（无需再点）
     this.checkIdiomCompletion();
     this.checkGameEnd();
     this.startCardMoveAnimation(card, block.x, block.y);
+  }
+
+  addRemovedCardToSlot(cardIndex) {
+    if (cardIndex >= 0 && cardIndex < this.removedCards.cards.length && this.cardSlot.cards.length < this.cardSlot.maxCards) {
+      const card = this.removedCards.cards.splice(cardIndex, 1)[0];
+      this.cardSlot.cards.push(card);
+      this.updateRemovedCardsLayout();
+      // 从移出区回填卡槽后，立即检测是否组成成语并触发消除
+      this.checkIdiomCompletion();
+    }
   }
 
   updateBlockRelations(removedBlock) {
@@ -848,6 +863,8 @@ class Level3 {
       const card = this.removedCards.cards.splice(cardIndex, 1)[0];
       this.cardSlot.cards.push(card);
       this.updateRemovedCardsLayout();
+      // 从移出区回填卡槽后，立即检测是否组成成语并触发消除
+      this.checkIdiomCompletion();
     }
   }
 
@@ -1090,7 +1107,7 @@ class Level3 {
 
     const remainingBlocks = this.allBlocks.filter(block => block.status === 0).length;
     context.fillStyle = '#4caf50';
-    context.font = 'bold 16px Arial';
+    context.font = 'normal 16px Arial';
     context.textAlign = 'center';
     context.fillText(`剩余卡片: ${remainingBlocks}`, this.width / 2, 105);
 

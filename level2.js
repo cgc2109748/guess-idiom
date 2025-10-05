@@ -16,7 +16,7 @@ class Level2 {
     this.movingCard = null;
     this.animationDuration = 500;
     this.cardCompletionAnimation = null;
-    this.difficultyLevel = 1;
+    this.difficultyLevel = 2;
     this.buttonUsageLimits = { remove: 3, undo: 3, shuffle: 3 };
     this.buttonUsageRemaining = { remove: 3, undo: 3, shuffle: 3 };
     this.bgImage = null;
@@ -664,8 +664,12 @@ class Level2 {
       return;
     }
     
+    // 若卡槽已满：若已能组成成语则立即触发消除，否则判定失败
     if (this.cardSlot.cards.length >= this.cardSlot.maxCards) {
-      if (!this.hasCompletableIdiom()) {
+      if (this.hasCompletableIdiom()) {
+        // 立即检测并触发成语消除动画
+        this.checkIdiomCompletion();
+      } else {
         this.showGameFailure();
       }
       return;
@@ -684,6 +688,7 @@ class Level2 {
     
     this.cardSlot.cards.push(card);
     this.updateBlockRelations(block);
+    // 卡槽内容变化后，立即检测是否组成成语并触发消除（无需再点）
     this.checkIdiomCompletion();
     this.checkGameEnd();
     this.startCardMoveAnimation(card, block.x, block.y);
@@ -866,6 +871,8 @@ class Level2 {
       const card = this.removedCards.cards.splice(cardIndex, 1)[0];
       this.cardSlot.cards.push(card);
       this.updateRemovedCardsLayout();
+      // 立即检测是否已形成成语并触发消除（无需再次点击）
+      this.checkIdiomCompletion();
     }
   }
 

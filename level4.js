@@ -18,8 +18,8 @@ class Level4 {
     this.cardCompletionAnimation = null;
     this.difficultyLevel = 2;
     // this.showMatrixOverlay 已移除
-    this.buttonUsageLimits = { remove: 3, undo: 3, shuffle: 3 };
-    this.buttonUsageRemaining = { remove: 3, undo: 3, shuffle: 3 };
+    this.buttonUsageLimits = { remove: 10, undo: 10, shuffle: 5 };
+    this.buttonUsageRemaining = { remove: 10, undo: 10, shuffle: 5 };
     this.bgImage = null;
     this.bgImageLoaded = false;
     this.allBlocks = [];
