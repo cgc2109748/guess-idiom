@@ -16,7 +16,7 @@ class Level3 {
     this.movingCard = null;
     this.animationDuration = 500;
     this.cardCompletionAnimation = null;
-    this.difficultyLevel = 1;
+    this.difficultyLevel = 2;
     this.buttonUsageLimits = { remove: 5, undo: 5, shuffle: 3 };
     this.buttonUsageRemaining = { remove: 5, undo: 5, shuffle: 3 };
     this.bgImage = null;
@@ -98,7 +98,7 @@ class Level3 {
           this.idiomCharacters.push(...idiom.idiom.split(''));
         }
       });
-      this.shuffleArray(this.idiomCharacters);
+      // 移除旧难度系数的打乱逻辑，保留按顺序生成字符池，由 arrangeCharactersByDifficulty 统一安排
     } catch (error) {
       this.selectedIdioms = [];
       const randomIndices = this.generateRandomIndices(idioms.length, 71);
@@ -111,7 +111,7 @@ class Level3 {
           this.idiomCharacters.push(...idiom.idiom.split(''));
         }
       });
-      this.shuffleArray(this.idiomCharacters);
+      // 移除旧难度系数的打乱逻辑
     }
   }
 
@@ -294,45 +294,153 @@ class Level3 {
     this.maxPyramidLayers = L - 1;
   }
 
-  // 初始化块数据结构（按金字塔 7×9 -> ... -> 1×2 层级堆叠）
+  // 新难度系数排列：按 1-4 级规则生成与金字塔位置一一对应的字符序列
+  arrangeCharactersByDifficulty(sourceChars = []) {
+    const total = this.pyramidPositions.length;
+    const result = new Array(total);
+
+    // 分层收集索引（layer 越大越靠上）
+    const indicesByLayer = {};
+    this.pyramidPositions.forEach((pos, idx) => {
+      if (!indicesByLayer[pos.layer]) indicesByLayer[pos.layer] = [];
+      indicesByLayer[pos.layer].push(idx);
+    });
+    const layerNumsAsc = Object.keys(indicesByLayer).map(n => parseInt(n, 10)).sort((a, b) => a - b); // 底层->顶层
+    const layerNumsDesc = layerNumsAsc.slice().sort((a, b) => b - a); // 顶层->底层
+
+    // 构建成语与字符池
+    const idiomList = (this.selectedIdioms || []).slice();
+    const idiomCharsList = idiomList.map(i => (i && i.idiom ? i.idiom.split('') : []));
+    const flatChars = sourceChars && sourceChars.length ? sourceChars.slice() : idiomCharsList.flat();
+
+    // 工具：浅随机打乱
+    const shuffle = (arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    };
+
+    // 工具：向指定层填充若干字符
+    const layerFree = new Map(layerNumsAsc.map(L => [L, indicesByLayer[L].slice()]));
+    const placeCharsToLayer = (chars, L, count) => {
+      const slots = layerFree.get(L) || [];
+      const n = Math.min(count, slots.length);
+      for (let k = 0; k < n; k++) {
+        result[slots.shift()] = chars.shift();
+      }
+      layerFree.set(L, slots);
+      return count - n; // 返回剩余未放数量
+    };
+
+    // 难度 1：按顺序将所有成语文字依次填充到金字塔
+    if (this.difficultyLevel === 1) {
+      for (let i = 0; i < total; i++) {
+        result[i] = flatChars[i % flatChars.length];
+      }
+      return result;
+    }
+
+    // 难度 4：顶层（2×2）放一个完整成语，其余完全随机
+    if (this.difficultyLevel === 4) {
+      const topL = layerNumsDesc[0];
+      const topSlots = (layerFree.get(topL) || []).slice();
+      const firstIdiom = idiomCharsList[0] ? shuffle(idiomCharsList[0].slice()) : [];
+      for (let i = 0; i < Math.min(4, topSlots.length); i++) {
+        result[topSlots[i]] = firstIdiom[i];
+      }
+      // 标记已使用顶层槽位
+      layerFree.set(topL, topSlots.slice(Math.min(4, topSlots.length)));
+
+      // 其余位置完全随机填充剩余字符
+      let remainChars = idiomCharsList.slice(1).flat();
+      remainChars = shuffle(remainChars);
+      for (let i = 0; i < total; i++) {
+        if (result[i] == null) {
+          result[i] = remainChars.shift();
+        }
+      }
+      return result;
+    }
+
+    // 难度 2/3：顶部若干层放指定数量的成语，要求每个成语的 4 字分布在最多两层内；剩余层随机
+    const topLayers = this.difficultyLevel === 2 ? layerNumsDesc.slice(0, 5) : layerNumsDesc.slice(0, 4); // 2: [2×2..6×6]；3: [2×2..5×5]
+    const idiomCount = this.difficultyLevel === 2 ? 16 : 7;
+
+    // 预设相邻层配对方案，循环使用
+    const pairs = [];
+    for (let i = 0; i < topLayers.length - 1; i++) {
+      pairs.push([topLayers[i], topLayers[i + 1]]);
+    }
+    if (pairs.length === 0) pairs.push([topLayers[0], topLayers[0]]);
+
+    // 放置指定数量的成语
+    for (let idx = 0; idx < Math.min(idiomCount, idiomCharsList.length); idx++) {
+      const chars = shuffle(idiomCharsList[idx].slice()); // 略微打乱成语内部顺序
+      const [L1, L2] = pairs[idx % pairs.length];
+      let remaining = 4;
+      // 先尝试两层各放 2 字
+      remaining -= (2 - placeCharsToLayer(chars, L1, 2));
+      remaining -= (2 - placeCharsToLayer(chars, L2, 2));
+      // 若两层空间不足，继续在顶部其他层补齐
+      if (remaining > 0) {
+        for (const L of topLayers) {
+          if (remaining <= 0) break;
+          remaining -= (remaining - placeCharsToLayer(chars, L, remaining));
+        }
+      }
+    }
+
+    // 其余位置完全随机填充剩余字符
+    let remainChars = idiomCharsList.slice(idiomCount).flat();
+    remainChars = shuffle(remainChars);
+    for (let i = 0; i < total; i++) {
+      if (result[i] == null) {
+        result[i] = remainChars.shift();
+      }
+    }
+    return result;
+  }
+
   initBlocks() {
     this.allBlocks = [];
     this.blockData = {};
     this.generatePyramidPositions();
 
+    const arrangedChars = this.arrangeCharactersByDifficulty(this.idiomCharacters);
+
     let blockId = 0;
     this.pyramidPositions.forEach(pos => {
-      const charType = this.idiomCharacters[blockId % this.idiomCharacters.length];
+      const charType = arrangedChars[blockId] || this.idiomCharacters[blockId % this.idiomCharacters.length];
       const block = {
         id: blockId,
         x: pos.x,
         y: pos.y,
         type: charType,
-        status: 0, // 0=可见，1=已点击/移除
-        level: pos.layer, // 层级：数值越大越靠上（上层遮挡下层）
+        status: 0,
+        level: pos.layer,
         area: 'pyramid',
         higherThanBlocks: [],
         lowerThanBlocks: []
       };
       this.allBlocks.push(block);
-      this.blockData[blockId] = block; // 关键：用于撤回通过 blockId 找回原块
+      this.blockData[blockId] = block;
       blockId++;
     });
 
-    // 建立层级遮挡关系：同一坐标（x,y）上，level 更大的压在更小的上面
-    this.allBlocks.forEach(block => this.genLevelRelation(block));
+    this.allBlocks.forEach(b => this.genLevelRelation(b));
   }
 
-  // 生成块的层级关系
   genLevelRelation(block) {
     const { x, y, level } = block;
     block.higherThanBlocks = [];
     block.lowerThanBlocks = [];
-    
-    const blocksInSamePosition = this.allBlocks.filter(otherBlock => 
+
+    const blocksInSamePosition = this.allBlocks.filter(otherBlock =>
       otherBlock.x === x && otherBlock.y === y
     );
-    
+
     blocksInSamePosition.forEach(otherBlock => {
       if (otherBlock.id !== block.id) {
         if (otherBlock.level > level) {
@@ -343,7 +451,6 @@ class Level3 {
     });
   }
 
-  // 计算网格（仅基于金字塔位置）
   calculateGrid() {
     const allPositions = this.pyramidPositions;
     const minX = Math.min(...allPositions.map(p => p.x));
@@ -354,11 +461,9 @@ class Level3 {
     const totalWidth = (maxX - minX) * (this.cellSize + this.gridSpacing) + this.cellSize;
     const totalHeight = (maxY - minY) * (this.cellSize + this.gridSpacing) + this.cellSize;
 
-    // 使布局居中，向下留出顶部标题区域
     this.gridStartX = (this.width - totalWidth) / 2;
     this.gridStartY = 125 - this.cellSize / 3;
 
-    // 底层边界（像素范围），用于后续各层位置的限制
     this.bottomBounds = {
       left: this.gridStartX,
       top: this.gridStartY,
@@ -366,17 +471,15 @@ class Level3 {
       bottom: this.gridStartY + totalHeight
     };
 
-    // 存储网格范围与步长（用于命中检测）
     this.minGridX = minX;
     this.maxGridX = maxX;
     this.minGridY = minY;
     this.maxGridY = maxY;
     this.stepX = this.cellSize + this.gridSpacing;
     this.stepY = this.cellSize + this.gridSpacing;
-    this.matrixCols = this.maxGridX - this.minGridX + 1; // 预期=9
-    this.matrixRows = this.maxGridY - this.minGridY + 1; // 预期=9
+    this.matrixCols = this.maxGridX - this.minGridX + 1;
+    this.matrixRows = this.maxGridY - this.minGridY + 1;
 
-    // 初始化网格单元格位置
     this.gridCells = [];
     allPositions.forEach(pos => {
       if (!this.gridCells[pos.x]) {
@@ -390,18 +493,15 @@ class Level3 {
       };
     });
 
-    // 计算卡槽位置（在整个布局下方）
     const slotY = this.gridStartY + totalHeight + 40;
     this.cardSlot.y = slotY;
     this.cardSlot.x = (this.width - this.cardSlot.maxCards * (this.cardSlot.cardWidth + this.cardSlot.cardSpacing)) / 2;
     this.cardSlot.width = this.cardSlot.maxCards * (this.cardSlot.cardWidth + this.cardSlot.cardSpacing);
 
-    // 移出卡片区域位置（在卡槽下方）
     this.removedCards.y = slotY + this.cardSlot.height + 30;
     this.removedCards.x = 20;
     this.removedCards.width = this.width - 40;
 
-    // 边界保护
     if (this.removedCards.y + this.removedCards.height > this.height - 100) {
       this.removedCards.y = this.height - this.removedCards.height - 100;
     }
@@ -869,12 +969,13 @@ class Level3 {
   }
 
   shuffleBlocks() {
-    const availableBlocks = this.allBlocks.filter(block => block.status === 0);
-    const characters = availableBlocks.map(block => block.type);
-    this.shuffleArray(characters);
-    
-    availableBlocks.forEach((block, index) => {
-      block.type = characters[index];
+    // 洗牌：按当前难度系数重新安排字符到金字塔位置（保留已移除的块状态不变）
+    const arrangedFull = this.arrangeCharactersByDifficulty(this.idiomCharacters);
+    this.allBlocks.forEach(block => {
+      if (block.status === 0) {
+        const ch = arrangedFull[block.id] || block.type;
+        block.type = ch;
+      }
     });
   }
 
