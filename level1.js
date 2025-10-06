@@ -1472,6 +1472,9 @@ class Level1 {
   }
   
   renderCardSlot() {
+    if (!this.cardSlot) {
+      return;
+    }
     // 绘制卡槽背景
     this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
     this.ctx.fillRect(this.cardSlot.x, this.cardSlot.y, this.cardSlot.width, this.cardSlot.height);

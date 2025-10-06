@@ -24,6 +24,13 @@ class Level3 {
     this.allBlocks = [];
     this.blockData = {};
     
+    // 触摸状态变量
+    this.touchStartX = null;
+    this.touchCurrentX = null;
+    this.isTouchingCardSlot = false;
+    this.isTouchingRemovedCards = false;
+    this.initialScrollOffset = 0;
+    
     // 标识第三关
     this.levelName = 'level3';
     // 金字塔层数（用于阴影与明暗计算）
@@ -222,28 +229,41 @@ class Level3 {
   }
 
   initCardSlot() {
+    // 固定显示10个卡片位置的宽度
+    const visibleCards = 10;
+    const cardWidth = 30;
+    const cardSpacing = 5;
+    
     this.cardSlot = {
-      maxCards: 10,
+      maxCards: 20,
       cards: [],
       x: 0,
       y: 0,
-      width: 0,
+      // 固定宽度为10个卡片位置的宽度
+      width: visibleCards * (cardWidth + cardSpacing) - cardSpacing,
       height: 60,
-      cardWidth: 30,
+      cardWidth: cardWidth,
       cardHeight: 50,
-      cardSpacing: 5
+      cardSpacing: cardSpacing,
+      // 可见卡片数量
+      visibleCards: visibleCards
     };
-    
+    // 固定显示10个卡片位置的宽度
     this.removedCards = {
       cards: [],
-      maxCards: 10,
+      maxCards: 16,
       x: 0,
       y: 0,
-      width: 0,
-      height: 50,
-      cardWidth: 30,
-      cardHeight: 50,
-      cardSpacing: 5
+      // 固定宽度为10个卡片位置的宽度
+      width: visibleCards * (cardWidth + cardSpacing) - cardSpacing,
+      height: 40, // 固定高度为40，与后面布局计算中保持一致
+      cardWidth: cardWidth,
+      cardHeight: 40,
+      cardSpacing: cardSpacing,
+      // 新增：水平滚动偏移（仅格子滑动，边框固定）
+      scrollOffset: 0,
+      // 可见卡片数量
+      visibleCards: visibleCards
     };
     
     this.movingCard = null;
@@ -495,12 +515,22 @@ class Level3 {
 
     const slotY = this.gridStartY + totalHeight + 40;
     this.cardSlot.y = slotY;
-    this.cardSlot.x = (this.width - this.cardSlot.maxCards * (this.cardSlot.cardWidth + this.cardSlot.cardSpacing)) / 2;
-    this.cardSlot.width = this.cardSlot.maxCards * (this.cardSlot.cardWidth + this.cardSlot.cardSpacing);
+    // 固定卡槽宽度：内容宽度 + 左右各10px内边距
+    const fixedWidth = this.cardSlot.visibleCards * (this.cardSlot.cardWidth + this.cardSlot.cardSpacing) - this.cardSlot.cardSpacing;
+    this.cardSlot.width = fixedWidth + 20;
+    this.cardSlot.x = (this.width - this.cardSlot.width) / 2;
 
+    // 动态高度：默认一行，当前卡片数量超过10个时按10列自动换行
+    const cardsPerRow = this.cardSlot.visibleCards; // 10
+    const rows = Math.max(1, Math.ceil(this.cardSlot.cards.length / cardsPerRow));
+    this.cardSlot.height = rows * (this.cardSlot.cardHeight + 5) + 5;
+
+    // 移出区位置跟随卡槽高度，宽度与卡槽一致（包含左右各10px内边距）
     this.removedCards.y = slotY + this.cardSlot.height + 30;
-    this.removedCards.x = 20;
-    this.removedCards.width = this.width - 40;
+    this.removedCards.width = fixedWidth + 20;
+    this.removedCards.x = (this.width - this.removedCards.width) / 2;
+    // 初始高度保持，后续由 updateRemovedCardsLayout 动态更新
+    // this.removedCards.height = 40;
 
     if (this.removedCards.y + this.removedCards.height > this.height - 100) {
       this.removedCards.y = this.height - this.removedCards.height - 100;
@@ -588,13 +618,27 @@ class Level3 {
       this.addRemovedCardToSlot(clickedRemovedCard);
       return;
     }
+    
+    // 添加调试信息，帮助排查问题
+    // console.log('点击位置:', x, y);
+    // console.log('移出区域:', this.removedCards.x, this.removedCards.y, this.removedCards.width, this.removedCards.height);
+    // console.log('点击的卡片索引:', clickedRemovedCard);
+    
+    // 移出卡槽区域现在使用多行显示，不需要滑动逻辑
+    if (clickedRemovedCard === -1 && 
+        x >= this.removedCards.x && x <= this.removedCards.x + this.removedCards.width &&
+        y >= this.removedCards.y && y <= this.removedCards.y + this.removedCards.height) {
+      // 点击在移出卡槽区域但未命中卡片，不做任何处理
+      return;
+    }
   
-    // 检查卡槽中卡片点击（禁用点击移出，必须通过“移出”按钮）
+    // 检查卡槽中卡片点击（禁用通过点击来移出，必须点击“移出”按钮）
     const clickedSlotCard = this.getClickedSlotCard(x, y);
     if (clickedSlotCard !== -1) {
-      // 禁止通过点击卡槽中的卡片移出，必须点击“移出”按钮才会移动到移出卡槽区域
-      return; // 直接吞掉点击，不执行移动
+      return; // 吞掉点击，不执行移动
     }
+    
+    // 卡槽区域不再支持横向滑动，点击空白处不做处理
   
     // 检查网格点击
     const clickedBlock = this.getClickedBlock(x, y);
@@ -608,25 +652,27 @@ class Level3 {
       return -1;
     }
     
-    const availableWidth = this.removedCards.width - 20;
-    const totalCardWidth = this.removedCards.cards.length * this.removedCards.cardWidth + 
-                          (this.removedCards.cards.length - 1) * this.removedCards.cardSpacing;
+    // console.log('检测点击移出卡片，点击位置:', x, y);
     
-    let actualCardSpacing = this.removedCards.cardSpacing;
-    if (totalCardWidth > availableWidth) {
-      actualCardSpacing = Math.max(1, (availableWidth - this.removedCards.cards.length * this.removedCards.cardWidth) / 
-                                     (this.removedCards.cards.length - 1));
-    }
-    
-    const clickYOffset = 0;
+    const cardsPerRow = 10; // 每行显示10个卡片，与renderRemovedCards保持一致
+    const actualCardSpacing = this.removedCards.cardSpacing;
     
     for (let i = 0; i < this.removedCards.cards.length; i++) {
-      const cardX = this.removedCards.x + 10 + i * (this.removedCards.cardWidth + actualCardSpacing);
-      const hitTop = this.removedCards.y + clickYOffset;
-      const hitBottom = hitTop + this.removedCards.cardHeight;
+      // 计算卡片所在的行和列，与renderRemovedCards保持一致
+      const row = Math.floor(i / cardsPerRow);
+      const col = i % cardsPerRow;
+      
+      const cardX = this.removedCards.x + 10 + col * (this.removedCards.cardWidth + actualCardSpacing);
+      const cardY = this.removedCards.y + 5 + row * (this.removedCards.cardHeight + 5);
+      
+      // 确保卡片高度与渲染时一致
+      const cardHeight = Math.min(this.removedCards.cardHeight, this.removedCards.height - 10);
+      
+      // console.log(`卡片 ${i} 位置:`, cardX, cardY, this.removedCards.cardWidth, cardHeight);
       
       if (x >= cardX && x <= cardX + this.removedCards.cardWidth &&
-          y >= hitTop && y <= hitBottom) {
+          y >= cardY && y <= cardY + cardHeight) {
+        // console.log(`点击命中卡片 ${i}`);
         return i;
       }
     }
@@ -635,33 +681,31 @@ class Level3 {
   }
 
   getClickedSlotCard(x, y) {
-    if (this.cardSlot.cards.length === 0) {
+    if (this.cardSlot.maxCards === 0) {
       return -1;
     }
-    
-    const availableWidth = this.cardSlot.width - 20;
-    const totalCardWidth = this.cardSlot.maxCards * this.cardSlot.cardWidth + (this.cardSlot.maxCards - 1) * this.cardSlot.cardSpacing;
-    let actualCardSpacing = this.cardSlot.cardSpacing;
-    if (totalCardWidth > availableWidth) {
-      actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
-    }
-    
-    const clickYOffset = 5;
-    
-    for (let i = 0; i < this.cardSlot.cards.length; i++) {
-      const cardX = this.cardSlot.x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
-      const cardY = this.cardSlot.y + clickYOffset;
-      
-      if (cardX + this.cardSlot.cardWidth <= this.cardSlot.x + this.cardSlot.width - 10) {
-        if (x >= cardX && x <= cardX + this.cardSlot.cardWidth &&
-            y >= cardY && y <= cardY + this.cardSlot.cardHeight) {
-          return i;
-        }
+
+    const cardsPerRow = this.cardSlot.visibleCards;
+    const actualCardSpacing = this.cardSlot.cardSpacing;
+    // 防御性：根据当前卡片数量更新高度，避免外部未调用calculateGrid时高度不一致
+    const rows = Math.max(1, Math.ceil(this.cardSlot.cards.length / cardsPerRow));
+    this.cardSlot.height = rows * (this.cardSlot.cardHeight + 5) + 5;
+
+    for (let i = 0; i < this.cardSlot.maxCards; i++) {
+      const row = Math.floor(i / cardsPerRow);
+      const col = i % cardsPerRow;
+      const cardX = this.cardSlot.x + 10 + col * (this.cardSlot.cardWidth + actualCardSpacing);
+      const cardY = this.cardSlot.y + 5 + row * (this.cardSlot.cardHeight + 5);
+      const hitTop = cardY;
+      const hitBottom = hitTop + this.cardSlot.cardHeight;
+
+      if (x >= cardX && x <= cardX + this.cardSlot.cardWidth && y >= hitTop && y <= hitBottom) {
+        return i;
       }
     }
-    
     return -1;
   }
+
 
   moveSlotCardToRemoved(cardIndex) {
     if (cardIndex >= 0 && cardIndex < this.cardSlot.cards.length) {
@@ -796,12 +840,25 @@ class Level3 {
   }
 
   addRemovedCardToSlot(cardIndex) {
+    console.log('尝试添加卡片到卡槽，索引:', cardIndex);
+    console.log('当前卡槽卡片数量:', this.cardSlot.cards.length);
+    console.log('卡槽最大容量:', this.cardSlot.maxCards);
+    
     if (cardIndex >= 0 && cardIndex < this.removedCards.cards.length && this.cardSlot.cards.length < this.cardSlot.maxCards) {
+      console.log('条件满足，执行添加操作');
       const card = this.removedCards.cards.splice(cardIndex, 1)[0];
       this.cardSlot.cards.push(card);
       this.updateRemovedCardsLayout();
       // 从移出区回填卡槽后，立即检测是否组成成语并触发消除
       this.checkIdiomCompletion();
+    } else {
+      console.log('条件不满足，无法添加卡片');
+      if (cardIndex < 0 || cardIndex >= this.removedCards.cards.length) {
+        console.log('卡片索引无效');
+      }
+      if (this.cardSlot.cards.length >= this.cardSlot.maxCards) {
+        console.log('卡槽已满');
+      }
     }
   }
 
@@ -842,15 +899,13 @@ class Level3 {
     }
 
     const targetIndex = this.cardSlot.cards.length - 1;
-    const availableWidth = this.cardSlot.width - 20;
-    const totalCardWidth = this.cardSlot.maxCards * this.cardSlot.cardWidth + (this.cardSlot.maxCards - 1) * this.cardSlot.cardSpacing;
-    let actualCardSpacing = this.cardSlot.cardSpacing;
-    if (totalCardWidth > availableWidth) {
-      actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
-    }
+    const cardsPerRow = this.cardSlot.visibleCards;
+    const actualCardSpacing = this.cardSlot.cardSpacing;
+    const row = Math.floor(targetIndex / cardsPerRow);
+    const col = targetIndex % cardsPerRow;
 
-    const targetX = this.cardSlot.x + 10 + targetIndex * (this.cardSlot.cardWidth + actualCardSpacing) + this.cardSlot.cardWidth / 2;
-    const targetY = this.cardSlot.y + 5 + this.cardSlot.cardHeight / 2;
+    const targetX = this.cardSlot.x + 10 + col * (this.cardSlot.cardWidth + actualCardSpacing) + this.cardSlot.cardWidth / 2;
+    const targetY = this.cardSlot.y + 5 + row * (this.cardSlot.cardHeight + 5) + this.cardSlot.cardHeight / 2;
 
     this.movingCard = {
       card: card,
@@ -952,10 +1007,19 @@ class Level3 {
   }
 
   updateRemovedCardsLayout() {
-    // 动态调整移出卡片区域的高度
-    const maxCardsPerRow = Math.floor((this.removedCards.width - 20) / (this.removedCards.cardWidth + this.removedCards.cardSpacing));
-    const rows = Math.ceil(this.removedCards.cards.length / maxCardsPerRow);
-    this.removedCards.height = Math.max(50, rows * (this.removedCards.cardHeight + 5));
+    // 计算需要的行数
+    const cardsPerRow = 10; // 每行显示10个卡片
+    const removedRows = Math.ceil(this.removedCards.cards.length / cardsPerRow);
+    // 设置移出卡片区域的高度，根据行数动态调整
+    this.removedCards.height = removedRows * (this.removedCards.cardHeight + 5) + 5;
+
+    // 同步卡槽高度（按可见列数进行换行，以当前卡片数量为准）
+    const slotCardsPerRow = this.cardSlot.visibleCards;
+    const slotRows = Math.max(1, Math.ceil(this.cardSlot.cards.length / slotCardsPerRow));
+    this.cardSlot.height = slotRows * (this.cardSlot.cardHeight + 5) + 5;
+
+    // 调整移出区位置，跟随卡槽高度
+    this.removedCards.y = this.cardSlot.y + this.cardSlot.height + 30;
   }
 
   addRemovedCardToSlot(cardIndex) {
@@ -1401,8 +1465,17 @@ class Level3 {
     const x = this.cardSlot.x;
     const y = this.cardSlot.y;
     const w = this.cardSlot.width;
+    // 保证高度按当前卡片数量计算：11张即换行
+    const cardsPerRow = this.cardSlot.visibleCards;
+    const computedRows = Math.max(1, Math.ceil(this.cardSlot.cards.length / cardsPerRow));
+    this.cardSlot.height = computedRows * (this.cardSlot.cardHeight + 5) + 5;
     const h = this.cardSlot.height;
     const radius = 10;
+
+    // 新增：卡槽高度变化后，立即刷新移出区位置/高度，避免与卡槽重叠
+    if (this.updateRemovedCardsLayout) {
+      this.updateRemovedCardsLayout();
+    }
 
     const roundRect = (ctx, rx, ry, rw, rh, r) => {
       ctx.beginPath();
@@ -1430,17 +1503,21 @@ class Level3 {
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`卡槽 (${this.cardSlot.cards.length}/${this.cardSlot.maxCards})`, x, y - 10);
 
-    // 计算插槽位置（空位也画占位）
-    const availableWidth = w - 20;
-    const totalCardWidth = this.cardSlot.maxCards * this.cardSlot.cardWidth + (this.cardSlot.maxCards - 1) * this.cardSlot.cardSpacing;
-    let actualCardSpacing = this.cardSlot.cardSpacing;
-    if (totalCardWidth > availableWidth) {
-      actualCardSpacing = Math.max(1, (availableWidth - this.cardSlot.maxCards * this.cardSlot.cardWidth) / (this.cardSlot.maxCards - 1));
-    }
+    // 使用上方已计算的 cardsPerRow
+    const actualCardSpacing = this.cardSlot.cardSpacing;
+
+    // 使用裁剪区域确保内容不越过边框
+    this.ctx.save();
+    this.ctx.beginPath();
+    // 扩大裁剪区域以容纳内容与左右10px内边距
+    this.ctx.rect(x + 3, y + 3, w - 6, h - 6);
+    this.ctx.clip();
 
     for (let i = 0; i < this.cardSlot.maxCards; i++) {
-      const cardX = x + 10 + i * (this.cardSlot.cardWidth + actualCardSpacing);
-      const cardY = y + 5; // 点击命中区域与渲染对齐
+      const row = Math.floor(i / cardsPerRow);
+      const col = i % cardsPerRow;
+      const cardX = x + 10 + col * (this.cardSlot.cardWidth + actualCardSpacing);
+      const cardY = y + 5 + row * (this.cardSlot.cardHeight + 5);
 
       // 占位底卡（浅灰）
       this.ctx.save();
@@ -1486,6 +1563,7 @@ class Level3 {
       }
     }
 
+    this.ctx.restore(); // 结束裁剪
     this.ctx.restore();
   }
 
@@ -1493,6 +1571,7 @@ class Level3 {
     if (this.removedCards.cards.length === 0) return;
     
     this.ctx.save();
+    // 边框固定
     this.ctx.fillStyle = '#e0e0e0';
     this.ctx.fillRect(this.removedCards.x, this.removedCards.y, this.removedCards.width, this.removedCards.height);
     
@@ -1500,23 +1579,33 @@ class Level3 {
     this.ctx.lineWidth = 1;
     this.ctx.strokeRect(this.removedCards.x, this.removedCards.y, this.removedCards.width, this.removedCards.height);
     
-    const availableWidth = this.removedCards.width - 20;
-    const maxCardsPerRow = Math.floor(availableWidth / (this.removedCards.cardWidth + this.removedCards.cardSpacing));
+    const cardsPerRow = 10; // 每行显示10个卡片
+    const actualCardSpacing = this.removedCards.cardSpacing;
+    
+    // 内容裁剪区域
+    this.ctx.save();
+    this.ctx.beginPath();
+    // 容器裁剪区域与宽度已包含左右边距，这里保持一致
+    this.ctx.rect(this.removedCards.x + 3, this.removedCards.y + 3, this.removedCards.width - 6, this.removedCards.height - 6);
+    this.ctx.clip();
     
     for (let i = 0; i < this.removedCards.cards.length; i++) {
       const card = this.removedCards.cards[i];
-      const row = Math.floor(i / maxCardsPerRow);
-      const col = i % maxCardsPerRow;
+      // 计算卡片所在的行和列
+      const row = Math.floor(i / cardsPerRow);
+      const col = i % cardsPerRow;
       
-      const cardX = this.removedCards.x + 10 + col * (this.removedCards.cardWidth + this.removedCards.cardSpacing);
+      const cardX = this.removedCards.x + 10 + col * (this.removedCards.cardWidth + actualCardSpacing);
       const cardY = this.removedCards.y + 5 + row * (this.removedCards.cardHeight + 5);
       
       this.ctx.fillStyle = '#ffd700';
-      this.ctx.fillRect(cardX, cardY, this.removedCards.cardWidth, this.removedCards.cardHeight);
+      // 确保卡片高度不超过容器高度
+      const cardHeight = Math.min(this.removedCards.cardHeight, this.removedCards.height - 10);
+      this.ctx.fillRect(cardX, cardY, this.removedCards.cardWidth, cardHeight);
       
       this.ctx.strokeStyle = '#666666';
       this.ctx.lineWidth = 1;
-      this.ctx.strokeRect(cardX, cardY, this.removedCards.cardWidth, this.removedCards.cardHeight);
+      this.ctx.strokeRect(cardX, cardY, this.removedCards.cardWidth, cardHeight);
       
       this.ctx.fillStyle = '#000000';
       this.ctx.font = 'bold 14px Arial';
@@ -1524,6 +1613,8 @@ class Level3 {
       this.ctx.fillText(card.characterType, cardX + this.removedCards.cardWidth / 2, 
                         cardY + this.removedCards.cardHeight / 2 + 5);
     }
+
+    this.ctx.restore(); // 内容裁剪结束
     
     this.ctx.fillStyle = '#666666';
     this.ctx.font = '12px Arial';
@@ -1553,6 +1644,53 @@ renderMovingCard() {
   this.ctx.textAlign = 'center';
   this.ctx.fillText(mc.card.characterType, drawX + drawW / 2, drawY + drawH / 2 + 6);
   this.ctx.restore();
+}
+
+// 触摸开始事件处理
+handleTouchStart(x, y) {
+  this.touchStartX = x;
+  this.touchCurrentX = x;
+  
+  // 检查是否触摸在卡槽区域
+  if (x >= this.cardSlot.x && x <= this.cardSlot.x + this.cardSlot.width &&
+      y >= this.cardSlot.y && y <= this.cardSlot.y + this.cardSlot.height) {
+    this.isTouchingCardSlot = true;
+    return;
+  }
+  
+  // 移出卡片区域现在使用多行显示，不需要滑动逻辑
+  // 直接使用普通点击处理
+  
+  // 如果不是在卡槽或移出卡片区域，则使用普通点击处理
+  this.handleTouch(x, y);
+}
+
+// 触摸移动事件处理
+handleTouchMove(x, y) {
+  if (!this.touchStartX) return;
+  
+  this.touchCurrentX = x;
+  const deltaX = this.touchCurrentX - this.touchStartX;
+  
+  // 处理卡槽滑动
+  if (this.isTouchingCardSlot) {
+    // 多行格子布局下卡槽不支持滚动
+    return;
+  }
+  
+  // 移出卡片区域使用多行显示，不需要滑动逻辑
+  if (this.isTouchingRemovedCards) {
+    return;
+  }
+}
+
+// 触摸结束事件处理
+handleTouchEnd() {
+  // 重置触摸状态
+  this.touchStartX = null;
+  this.touchCurrentX = null;
+  this.isTouchingCardSlot = false;
+  this.isTouchingRemovedCards = false;
 }
 } // end of Level3 class
 module.exports = Level3;
