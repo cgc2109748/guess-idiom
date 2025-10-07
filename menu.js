@@ -84,17 +84,9 @@ class Menu {
   }
   
   handleTouch(x, y) {
-    // 调试信息：输出画布尺寸、点击位置和按钮位置
-    console.log('画布尺寸:', this.width, 'x', this.height);
-    console.log('点击位置:', x, y);
-    console.log('按钮位置:', this.startButton.x, this.startButton.y, this.startButton.width, this.startButton.height);
-    console.log('按钮范围:', this.startButton.x, '~', this.startButton.x + this.startButton.width, 
-                this.startButton.y, '~', this.startButton.y + this.startButton.height);
-    
     // 检查是否点击了开始游戏按钮
     if (x >= this.startButton.x && x <= this.startButton.x + this.startButton.width &&
         y >= this.startButton.y && y <= this.startButton.y + this.startButton.height) {
-      console.log('点击了开始游戏按钮');
       this.startGame();
       return;
     }
@@ -102,7 +94,6 @@ class Menu {
     // 检查是否点击了关卡入口按钮
     for (const btn of this.levelButtons) {
       if (x >= btn.x && x <= btn.x + btn.width && y >= btn.y && y <= btn.y + btn.height) {
-        console.log('点击了关卡入口按钮:', btn.id);
         if (btn.id === 'level1') {
           this.startGame();
         } else if (btn.id === 'level2') {
@@ -115,54 +106,41 @@ class Menu {
         return;
       }
     }
-    
-    console.log('未点击到按钮');
-    console.log('X范围检查:', x >= this.startButton.x, x <= this.startButton.x + this.startButton.width);
-    console.log('Y范围检查:', y >= this.startButton.y, y <= this.startButton.y + this.startButton.height);
   }
   
   async startLevel4() {
-    console.log('开始第四关方法被调用');
     try {
       await this.game.initLevel4();
       this.game.gameState = this.game.GameState.LEVEL4;
-      console.log('游戏状态切换到:', this.game.gameState);
     } catch (error) {
       console.error('初始化第四关失败:', error);
     }
   }
   
   async startGame() {
-    console.log('开始游戏方法被调用');
     try {
       // 初始化第一关
       await this.game.initLevel1();
-      console.log('第一关初始化完成');
       // 切换到第一关
       this.game.gameState = this.game.GameState.LEVEL1;
-      console.log('游戏状态切换到:', this.game.gameState);
     } catch (error) {
       console.error('初始化第一关失败:', error);
     }
   }
   
   async startLevel2() {
-    console.log('开始第二关方法被调用');
     try {
       await this.game.initLevel2();
       this.game.gameState = this.game.GameState.LEVEL2;
-      console.log('游戏状态切换到:', this.game.gameState);
     } catch (error) {
       console.error('初始化第二关失败:', error);
     }
   }
   
   async startLevel3() {
-    console.log('开始第三关方法被调用');
     try {
       await this.game.initLevel3();
       this.game.gameState = this.game.GameState.LEVEL3;
-      console.log('游戏状态切换到:', this.game.gameState);
     } catch (error) {
       console.error('初始化第三关失败:', error);
     }
@@ -294,10 +272,10 @@ class Menu {
     this.levelButtonsAnchorRatio = { xRatio: anchorX / this.width, yRatio: anchorY / this.height };
     
     this.levelButtons = [
-      // { id: 'level1', text: '1', x: anchorX, y: anchorY, width: btnWidth, height: btnHeight },
-      // { id: 'level2', text: '2', x: anchorX + (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
-      // { id: 'level3', text: '3', x: anchorX + 2 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
-      // { id: 'level4', text: '4', x: anchorX + 3 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+      { id: 'level1', text: '1', x: anchorX, y: anchorY, width: btnWidth, height: btnHeight },
+      { id: 'level2', text: '2', x: anchorX + (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+      { id: 'level3', text: '3', x: anchorX + 2 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
+      { id: 'level4', text: '4', x: anchorX + 3 * (btnWidth + spacing), y: anchorY, width: btnWidth, height: btnHeight },
     ];
   }
   

@@ -772,9 +772,6 @@ class Level2 {
     }
 
     if (!canExecute) {
-      if (this.game && typeof this.game.showModalDialog === 'function') {
-        console.log('无法执行此操作')
-      }
       return;
     }
 
@@ -783,9 +780,6 @@ class Level2 {
     if (limit != null) {
       const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
       if (remaining <= 0) {
-        if (this.game && typeof this.game.showModalDialog === 'function') {
-          console.log('使用次数已用完')
-        }
         return;
       }
 
@@ -801,12 +795,6 @@ class Level2 {
       }
 
       // 提示已扣减一次机会
-      if (this.game && typeof this.game.showModalDialog === 'function') {
-        // this.game.showModalDialog('提示', '已扣减一次机会', [
-        //   { text: '知道了' }
-        // ]);
-        console.log('已扣减一次机会')
-      }
     } else {
       // 无次数限制的按钮，直接执行
       if (button.action) {

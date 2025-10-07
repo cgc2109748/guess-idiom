@@ -85,26 +85,22 @@ class Level1 {
       if (typeof wx !== 'undefined' && wx.request) {
         // 微信小程序环境
         data = await new Promise((resolve, reject) => {
-          console.log('微信小程序环境');
           wx.request({
-            url: './data.json',
+            url: './data.js',
             success: (res) => {
-              console.log('请求成功:', res.data);
               resolve(res.data);
             },
             fail: (res) => {
-              console.log('request fail', res);
               reject(res);
             }
           });
         });
       } else {
         // 浏览器环境
-        const response = await fetch('./data.json');
+        const response = await fetch('./data.js');
         data = await response.json();
       }
       this.idiomsData = data.idioms;
-      console.log(this.idiomsData)
       
       // 随机选择10个成语
       this.selectedIdioms = [];
@@ -797,9 +793,6 @@ class Level1 {
     }
 
     if (!canExecute) {
-      if (this.game && typeof this.game.showModalDialog === 'function') {
-        console.log('无法执行此操作')
-      }
       return;
     }
 
@@ -808,10 +801,6 @@ class Level1 {
     if (limit != null) {
       const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
       if (remaining <= 0) {
-        // 已用尽，提示
-        if (this.game && typeof this.game.showModalDialog === 'function') {
-          console.log('已用尽按钮机会')
-        }
         return;
       }
 
@@ -826,10 +815,6 @@ class Level1 {
         button.disabled = true;
       }
 
-      // 提示已扣减机会
-      if (this.game && typeof this.game.showModalDialog === 'function') {
-        console.log('已扣减一次机会')
-      }
     } else {
       // 无次数限制的按钮，直接执行
       if (button.action) {
@@ -861,10 +846,8 @@ class Level1 {
   removeLastCard() {
     // 移出卡槽中的前四个卡片到下方区域
     const cardsToRemove = Math.min(4, this.cardSlot.cards.length);
-    console.log("外面"+`Removing ${cardsToRemove} cards`);
     if (cardsToRemove > 0) {
       // 将前四个卡片移到移出区域
-      console.log("里面"+`Removing ${cardsToRemove} cards`);
       const removedCards = this.cardSlot.cards.splice(0, cardsToRemove);
       this.removedCards.cards = this.removedCards.cards.concat(removedCards);
       
@@ -1056,8 +1039,7 @@ class Level1 {
             if (this.game.showMainMenu) {
               this.game.showMainMenu();
             } else {
-              console.log('返回主页');
-              // 可以在这里添加返回主页的具体逻辑
+              // 返回主页逻辑未实现
             }
           }
         }
@@ -1090,7 +1072,6 @@ class Level1 {
       // 如果还有未完成的成语，说明游戏失败
       if (this.selectedIdioms.length > 0) {
         // TODO: 后续补全没有更多可点击块时的处理逻辑
-        console.log('没有更多可点击的块，但还有未完成的成语');
       }
     }
   }

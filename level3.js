@@ -23,19 +23,17 @@ class Level3 {
     this.bgImageLoaded = false;
     this.allBlocks = [];
     this.blockData = {};
-    
     // 触摸状态变量
     this.touchStartX = null;
     this.touchCurrentX = null;
     this.isTouchingCardSlot = false;
     this.isTouchingRemovedCards = false;
     this.initialScrollOffset = 0;
-    
     // 标识第三关
     this.levelName = 'level3';
     // 金字塔层数（用于阴影与明暗计算）
     this.maxPyramidLayers = 7;
-    
+
     // 每一层的颜色（层级区分用）
     this.layerColors = [
       '#FFCDD2', // L1 轻粉
@@ -839,28 +837,7 @@ class Level3 {
     this.startCardMoveAnimation(card, block.x, block.y);
   }
 
-  addRemovedCardToSlot(cardIndex) {
-    console.log('尝试添加卡片到卡槽，索引:', cardIndex);
-    console.log('当前卡槽卡片数量:', this.cardSlot.cards.length);
-    console.log('卡槽最大容量:', this.cardSlot.maxCards);
-    
-    if (cardIndex >= 0 && cardIndex < this.removedCards.cards.length && this.cardSlot.cards.length < this.cardSlot.maxCards) {
-      console.log('条件满足，执行添加操作');
-      const card = this.removedCards.cards.splice(cardIndex, 1)[0];
-      this.cardSlot.cards.push(card);
-      this.updateRemovedCardsLayout();
-      // 从移出区回填卡槽后，立即检测是否组成成语并触发消除
-      this.checkIdiomCompletion();
-    } else {
-      console.log('条件不满足，无法添加卡片');
-      if (cardIndex < 0 || cardIndex >= this.removedCards.cards.length) {
-        console.log('卡片索引无效');
-      }
-      if (this.cardSlot.cards.length >= this.cardSlot.maxCards) {
-        console.log('卡槽已满');
-      }
-    }
-  }
+  // duplicate addRemovedCardToSlot removed
 
   updateBlockRelations(removedBlock) {
     removedBlock.higherThanBlocks.forEach(higherBlock => {
@@ -936,7 +913,7 @@ class Level3 {
 
     if (!executable) {
       if (this.game && typeof this.game.showModalDialog === 'function') {
-        console.log('无法执行此操作')
+        // debug log removed
       }
       return;
     }
@@ -947,7 +924,7 @@ class Level3 {
       const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
       if (remaining <= 0) {
         if (this.game && typeof this.game.showModalDialog === 'function') {
-          console.log('使用机会已经没有了')
+          // debug log removed
         }
         return;
       }

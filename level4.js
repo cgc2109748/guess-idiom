@@ -77,11 +77,9 @@ class Level4 {
       this.idiomsData = data.idioms || [];
       this.selectedIdioms = [];
       const randomIndices = this.generateRandomIndices(this.idiomsData.length, 56);
-      console.log('随机索引:', this.idiomsData.length);
       for (const index of randomIndices) {
         this.selectedIdioms.push(this.idiomsData[index]);
       }
-      console.log('非catch选中的成语:', this.selectedIdioms);
       // 收集所有选中成语的字符并打乱
       this.idiomCharacters = [];
       this.selectedIdioms.forEach(idiom => {
@@ -98,7 +96,6 @@ class Level4 {
       for (const index of randomIndices) {
         this.selectedIdioms.push(require('./data.js')[index]);
       }
-      console.log('选中的成语:', this.selectedIdioms);
       this.idiomCharacters = [];
       this.selectedIdioms.forEach(idiom => {
         if (idiom && idiom.idiom) {
@@ -581,13 +578,8 @@ class Level4 {
     // 检查卡槽中卡片点击
     const clickedSlotCard = this.getClickedSlotCard(x, y);
     if (clickedSlotCard !== -1) {
-    // 禁用通过点击卡槽移出，提示使用“移出”按钮
-    if (this.game && typeof this.game.showModalDialog === 'function') {
-      console.log('请使用“移出”按钮进行移出操作');
-    } else {
-      console.log('请点击“移出”按钮进行移出操作');
-    }
-    return;
+      // 禁用通过点击卡槽移出，提示使用“移出”按钮
+      return;
     }
     
     // 检查网格点击（按钮与移出卡槽不受影响）
@@ -826,11 +818,6 @@ class Level4 {
     }
 
     if (!executable) {
-      if (this.game && typeof this.game.showModalDialog === 'function') {
-        console.log('无法执行此操作')
-      } else {
-        console.log('目前没有可执行目标');
-      }
       return;
     }
 
@@ -839,9 +826,6 @@ class Level4 {
     if (limit != null) {
       const remaining = this.buttonUsageRemaining[buttonId] ?? limit;
       if (remaining <= 0) {
-        if (this.game && typeof this.game.showModalDialog === 'function') {
-          console.log('操作次数已用完');
-        }
         return;
       }
       this.buttonUsageRemaining[buttonId] = remaining - 1;
@@ -1261,8 +1245,6 @@ class Level4 {
     });
   }
   
-  // 调试可视化：7×9矩阵覆盖层
-  renderMatrixOverlay() { /* removed */ }
   
   renderSingleBlock(block) {
     if (!this.gridCells[block.x] || !this.gridCells[block.x][block.y]) return;
